@@ -17,7 +17,9 @@ password_hash = PasswordHash.recommended()
 
 
 load_dotenv()
-JWT_SECRET = os.getenv("JWT_SECRET")
+JWT_SECRET = os.getenv("JWT_SECRET", "demo-key")
+if JWT_SECRET is None:
+    raise Exception("JWT_SECRET not set!")
 ALGORITHM = "HS256"
 JWT_TOKEN_EXPIRY = 30
 DUMMY_HASH = password_hash.hash("dummy pwd")

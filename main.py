@@ -6,7 +6,7 @@ from sqlalchemy import text
 from auth import get_current_user, require_role
 from db import get_db
 from models import User
-from routes import attendance, health_check
+from routes import announcements, attendance, health_check
 from routes.auth import token
 
 app = FastAPI(title="SSMD", description="Main API for SSMD school management software.")
@@ -14,6 +14,7 @@ app = FastAPI(title="SSMD", description="Main API for SSMD school management sof
 app.include_router(attendance.router)
 app.include_router(token.router)
 app.include_router(health_check.router)
+app.include_router(announcements.router)
 
 
 @app.get(

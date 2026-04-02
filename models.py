@@ -1,4 +1,7 @@
 from pydantic import BaseModel
+from typing import List
+from sqlalchemy import Column, Integer, String, Text, Date, ForeignKey
+from sqlalchemy.orm import relationship
 
 
 class User(BaseModel):
@@ -24,3 +27,9 @@ class CreateAttendance(BaseModel):
     student_id: int
     class_section_id: int
     status: str
+
+
+class AnnouncementCreate(BaseModel):
+    subject: str
+    details: str
+    roles: List[str]
