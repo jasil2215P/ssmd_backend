@@ -71,6 +71,8 @@ class ClassSections(Base):
     )
 
     attendances = relationship("Attendance", back_populates="class_sections")
+    class_subjects = relationship("ClassSubjects", back_populates="class_sections")
+    exams = relationship("Exams", back_populates="class_sections")
 
 
 class Students(Base):
@@ -88,6 +90,7 @@ class Students(Base):
     student_enrollments = relationship("StudentEnrollments", back_populates="students")
 
     attendances = relationship("Attendance", back_populates="students")
+    marks = relationship("Marks", back_populates="students")
 
 
 class StudentEnrollments(Base):
@@ -115,6 +118,7 @@ class Staff(Base):
 
     user = relationship("Users", back_populates="staff")
     subjects = relationship("Subjects", back_populates="staff")
+    teaching_assignments = relationship("TeachingAssignments", back_populates="staff")
 
 
 class Subjects(Base):
@@ -124,6 +128,8 @@ class Subjects(Base):
     name = Column(String)
 
     staff = relationship("Staff", back_populates="subjects")
+    class_subjects = relationship("ClassSubjects", back_populates="subjects")
+    exam_subjects = relationship("ExamSubjects", back_populates="subjects")
 
 
 class Attendance(Base):
@@ -170,3 +176,66 @@ class AnnouncementPosts(Base):
         "AnnouncementRoles", back_populates="announcement_posts"
     )
     user = relationship("Users", back_populates="announcement_posts")
+
+
+class ClassSubjects(Base):
+    __tablename__ = "class_subjects"
+
+    id = Column(Integer, primary_key=True, index=True)
+    class_section_id = Column(Integer, ForeignKey("class_sections.id"))
+    subject_id = Column(Integer, ForeignKey("subjects.id"))
+
+    __table_args__ = (UniqueConstraint("class_section_id", "subject_id"),)
+
+    class_sections = relationship("ClassSections", back_populates="class_subjects")
+    subjects = relationship("Subjects", back_populates="class_subjects")
+    teaching_assignments = relationship("TeachingAssignments", back_populates="class_subjects")
+
+
+class TeachingAssignments(Base):
+    __tablename__ = "teaching_assignments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    staff_id = Column(Integer, ForeignKey("staff.id"))
+    class_subject_id = Column(Integer, ForeignKey("class_subjects.id"))
+
+    staff = relationship("Staff", back_populates="teaching_assignments")
+    class_subjects = relationship("ClassSubjects", back_populates="teaching_assignments")
+
+
+class Exams(Base):
+    __tablename__ = "exams"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String)
+    class_section_id = Column(Integer, ForeignKey("class_sections.id"))
+
+    class_sections = relationship("ClassSections", back_populates="exams")
+    exam_subjects = relationship("ExamSubjects", back_populates="exams")
+
+
+class ExamSubjects(Base):
+    __tablename__ = "exam_subjects"
+
+    id = Column(Integer, primary_key=True, index=True)
+    exam_id = Column(Integer, ForeignKey("exams.id"))
+    subject_id = Column(Integer, ForeignKey("subjects.id"))
+    max_marks = Column(Integer)
+
+    exams = relationship("Exams", back_populates="exam_subjects")
+    subjects = relationship("Subjects", back_populates="exam_subjects")
+    marks = relationship("Marks", back_populates="exam_subjects")
+
+
+class Marks(Base):
+    __tablename__ = "marks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("students.id"))
+    exam_subject_id = Column(Integer, ForeignKey("exam_subjects.id"))
+    marks_obtained = Column(Integer)
+
+    __table_args__ = (UniqueConstraint("student_id", "exam_subject_id"),)
+
+    students = relationship("Students", back_populates="marks")
+    exam_subjects = relationship("ExamSubjects", back_populates="marks")

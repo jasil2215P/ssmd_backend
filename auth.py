@@ -56,14 +56,11 @@ def require_role(role: List[str]):
 
 
 def get_user(username: str, db):
-    query = text("""
-        SELECT * FROM users WHERE users.username = :username
-    """)
-
-    result = db.execute(query, {"username": username}).fetchone()
+    from models import Users
+    result = db.query(Users).filter(Users.username == username).first()
     if result is None:
         return None
-    return UserInDb.model_validate(result._mapping)
+    return UserInDb.model_validate(result, from_attributes=True)
 
 
 def verify_password(plain_password: str, hashed_password: str):
