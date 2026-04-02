@@ -11,7 +11,7 @@ if DATABASE_URL is None:
     raise Exception("DATABASE_URL not set in environment variable")
 
 
-engine = create_engine(DATABASE_URL, echo=True)
+engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
 
 Base = declarative_base()

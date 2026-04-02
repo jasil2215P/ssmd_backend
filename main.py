@@ -74,7 +74,8 @@ def get_students_of_class(class_id: int, db: Session = Depends(get_db)):
     )
 
     return [
-        {"id": d.student.id, "roll_no": d.roll_no, "name": d.student.name} for d in data
+        {"id": d.students.id, "roll_no": d.roll_no, "name": d.students.name}
+        for d in data
     ]
 
 

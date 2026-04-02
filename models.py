@@ -1,7 +1,15 @@
 from pydantic import BaseModel
 from typing import List
 
-from sqlalchemy import Column, Date, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import (
+    CheckConstraint,
+    Column,
+    Date,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import relationship
 from db import Base
 
@@ -47,6 +55,7 @@ class Users(Base):
 
     students = relationship("Students", back_populates="user", uselist=False)
     staff = relationship("Staff", back_populates="user", uselist=False)
+    announcement_posts = relationship("AnnouncementPosts", back_populates="user")
 
 
 class ClassSections(Base):
@@ -60,6 +69,8 @@ class ClassSections(Base):
     student_enrollments = relationship(
         "StudentEnrollments", back_populates="class_sections"
     )
+
+    attendances = relationship("Attendance", back_populates="class_sections")
 
 
 class Students(Base):
@@ -75,6 +86,8 @@ class Students(Base):
 
     user = relationship("Users", back_populates="students")
     student_enrollments = relationship("StudentEnrollments", back_populates="students")
+
+    attendances = relationship("Attendance", back_populates="students")
 
 
 class StudentEnrollments(Base):
@@ -111,3 +124,49 @@ class Subjects(Base):
     name = Column(String)
 
     staff = relationship("Staff", back_populates="subjects")
+
+
+class Attendance(Base):
+    __tablename__ = "attendance"
+
+    id = Column(Integer, primary_key=True)
+    student_id = Column(Integer, ForeignKey("students.id"), nullable=False)
+    class_section_id = Column(Integer, ForeignKey("class_sections.id"), nullable=False)
+    date = Column(Date, nullable=False)
+    status = Column(String(10), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('present', 'absent', 'leave')", name="valid_status"
+        ),
+    )
+
+    students = relationship("Students", back_populates="attendances")
+    class_sections = relationship("ClassSections", back_populates="attendances")
+
+
+class AnnouncementRoles(Base):
+    __tablename__ = "announcement_roles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    announcement_post_id = Column(Integer, ForeignKey("announcement_posts.id"))
+    for_role = Column(String(50))
+
+    announcement_posts = relationship(
+        "AnnouncementPosts", back_populates="announcement_roles"
+    )
+
+
+class AnnouncementPosts(Base):
+    __tablename__ = "announcement_posts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    subject = Column(String(255))
+    details = Column(String)
+    issuer = Column(Integer, ForeignKey("users.id"))
+    date = Column(Date)
+
+    announcement_roles = relationship(
+        "AnnouncementRoles", back_populates="announcement_posts"
+    )
+    user = relationship("Users", back_populates="announcement_posts")
