@@ -1,11 +1,12 @@
 from datetime import date
 
 from fastapi import Depends, FastAPI
-from sqlalchemy import text
+from sqlalchemy import and_
+from sqlalchemy.orm import Session
 
 from auth import get_current_user, require_role
 from db import get_db
-from models import User
+from models import ClassSections, Staff, StudentEnrollments, Students, Subjects, User
 from routes import announcements, attendance, health_check
 from routes.auth import token
 
@@ -20,49 +21,67 @@ app.include_router(announcements.router)
 @app.get(
     "/students/{student_id}/all", dependencies=[Depends(require_role(["teacher"]))]
 )
-def get_student_info(student_id: int, db=Depends(get_db)):
-    query = text("""
-        SELECT se.roll_no, st.name, st.father_name,
-        st.mother_name, st.admission_date, cs.class_name,
-        cs.section, cs.academic_year from students st
-        join student_enrollments se on st.id = se.student_id
-        AND st.id = :student_id
-        JOIN class_sections cs
-        ON se.class_section_id = cs.id;
-    """)
+def get_student_info(student_id: int, db: Session = Depends(get_db)):
+    data = (
+        db.query(Students)
+        .join(StudentEnrollments)
+        .filter(
+            and_(
+                Students.id == StudentEnrollments.student_id, Students.id == student_id
+            )
+        )
+        .join(ClassSections)
+        .filter(StudentEnrollments.class_section_id == ClassSections.id)
+        .one()
+    )
 
-    result = db.execute(query, {"student_id": student_id}).fetchone()
-
-    return result._mapping
+    return {
+        "roll_no": data.student_enrollments[0].roll_no,
+        "name": data.name,
+        "father_name": data.father_name,
+        "mother_name": data.mother_name,
+        "admission_date": data.admission_date,
+        "class_name": data.student_enrollments[0].class_sections.class_name,
+        "section": data.student_enrollments[0].class_sections.section,
+        "academic_year": data.student_enrollments[0].class_sections.academic_year,
+    }
 
 
 @app.get(
     "/classes",
     dependencies=[Depends(require_role(["teacher", "student"]))],
 )
-def get_classes(db=Depends(get_db)):
-    query = text("SELECT * FROM class_sections WHERE academic_year = :year")
-    data = db.execute(query, {"year": date.today().year}).fetchall()
-    return [dict(row._mapping) for row in data]
+def get_classes(db: Session = Depends(get_db)):
+    classes = (
+        db.query(ClassSections)
+        .filter(ClassSections.academic_year == date.today().year)
+        .all()
+    )
+
+    return [vars(c) for c in classes]
 
 
 @app.get(
     "/classes/{class_id}/students", dependencies=[Depends(require_role(["teacher"]))]
 )
-def get_students_of_class(class_id: int, db=Depends(get_db)):
-    query = text("""
-        select s.id, se.roll_no, s.name FROM student_enrollments se
-        JOIN students s on (se.class_section_id = :class_id) AND (s.id = se.student_id)
-        ORDER BY se.roll_no
-    """)
+def get_students_of_class(class_id: int, db: Session = Depends(get_db)):
+    data = (
+        db.query(StudentEnrollments)
+        .join(Students)
+        .filter(StudentEnrollments.class_section_id == class_id)
+        .order_by(StudentEnrollments.roll_no)
+        .all()
+    )
 
-    data = db.execute(query, {"class_id": class_id}).fetchall()
-
-    return [dict(row._mapping) for row in data]
+    return [
+        {"id": d.student.id, "roll_no": d.roll_no, "name": d.student.name} for d in data
+    ]
 
 
 @app.get("/user/me")
-def about_user(current_user: User = Depends(get_current_user), db=Depends(get_db)):
+def about_user(
+    current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
     current_role = current_user.role
     if current_role == "student":
         return get_student_data(db=db, user_id=current_user.id)
@@ -72,26 +91,42 @@ def about_user(current_user: User = Depends(get_current_user), db=Depends(get_db
         return current_role
 
 
-def get_student_data(db, user_id):
-    query = text("""
-        SELECT stu.id, stu.name, stu.father_name, stu.mother_name, stu.admission_date, stu.reg_no, 
-        cs.class_name, cs.section, cs.academic_year FROM students stu 
-        JOIN student_enrollments se ON (stu.id = se.student_id) 
-        JOIN class_sections cs ON (se.class_section_id = cs.id) 
-        WHERE stu.user_id = :user_id
-    """)
+def get_student_data(db: Session, user_id):
+    data = (
+        db.query(Students)
+        .join(StudentEnrollments)
+        .join(ClassSections)
+        .filter(ClassSections.id == StudentEnrollments.class_section_id)
+        .filter(Students.user_id == user_id)
+        .limit(1)
+        .one()
+    )
 
-    result = db.execute(query, {"user_id": user_id}).fetchone()
+    return {
+        "id": data.id,
+        "name": data.name,
+        "reg_no": data.reg_no,
+        "father_name": data.father_name,
+        "mother_name": data.mother_name,
+        "admission_date": data.admission_date,
+        "class_name": data.student_enrollments[0].class_sections.class_name,
+        "section": data.student_enrollments[0].class_sections.section,
+        "academic_year": data.student_enrollments[0].class_sections.academic_year,
+    }
 
-    return result._mapping
 
+def get_teacher_data(db: Session, user_id):
+    data = (
+        db.query(Staff)
+        .join(Subjects)
+        .filter(Staff.subject == Subjects.id)
+        .where(Staff.user_id == user_id)
+        .one()
+    )
 
-def get_teacher_data(db, user_id):
-    query = text("""
-    SELECT st.id, st.name, st.position, sub.name as subject FROM staff st
-    JOIN subjects sub ON (st.subject = sub.id) WHERE user_id = :user_id;
-    """)
-
-    result = db.execute(query, {"user_id": user_id}).fetchone()
-
-    return result._mapping
+    return {
+        "id": data.id,
+        "name": data.name,
+        "position": data.position,
+        "subject": data.subject,
+    }
