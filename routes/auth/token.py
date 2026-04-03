@@ -5,6 +5,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 import hashlib
+import os
 
 from auth import (
     ALGORITHM,
@@ -52,11 +53,13 @@ async def login(
 
     db.add(refresh_token_data)
     db.commit()
+
+    is_prod = os.getenv("ENVIRONMENT") == "production"
     response.set_cookie(
         key="refresh_token",
         value=refresh_token,
         httponly=True,
-        secure=True,
+        secure=is_prod,
         samesite="lax",
         max_age=JWT_REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60,
     )
@@ -110,11 +113,13 @@ async def refresh(
 
     db.add(refresh_token_data)
     db.commit()
+
+    is_prod = os.getenv("ENVIRONMENT") == "production"
     response.set_cookie(
         key="refresh_token",
         value=new_refresh_token,
         httponly=True,
-        secure=True,
+        secure=is_prod,
         samesite="lax",
         max_age=JWT_REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60,
     )
