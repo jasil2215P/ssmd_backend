@@ -56,7 +56,7 @@ async def login(
         key="refresh_token",
         value=refresh_token,
         httponly=True,
-        secure=False,
+        secure=True,
         samesite="lax",
         max_age=JWT_REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60,
     )
@@ -114,7 +114,7 @@ async def refresh(
         key="refresh_token",
         value=new_refresh_token,
         httponly=True,
-        secure=False,
+        secure=True,
         samesite="lax",
         max_age=JWT_REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60,
     )

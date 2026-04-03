@@ -1,9 +1,0 @@
-{
-  "session_id": "omx-1775228024702-5hhbg8",
-  "started_at": "2026-04-03T14:53:44.719Z",
-  "cwd": "/home/jasil/Documents/python/ssmd",
-  "pid": 167867,
-  "platform": "linux",
-  "pid_start_ticks": 2030543,
-  "pid_cmdline": "node /home/jasil/.npm-global/bin/omx"
-}
