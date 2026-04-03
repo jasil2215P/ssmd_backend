@@ -1,8 +1,8 @@
 from datetime import date
-from operator import and_
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import and_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -33,6 +33,34 @@ def mark_bulk_attendance(datas: List[CreateAttendance], db: Session = Depends(ge
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Attendance already marked for {date.today()}",
         )
+    return "done"
+
+
+@router.put("/attendance/bulk", dependencies=[Depends(require_role(["teacher"]))])
+def update_bulk_attendance(datas: List[CreateAttendance], db: Session = Depends(get_db)):
+    updated_attendance = 0
+
+    for data in datas:
+        updated_attendance += (
+            db.query(Attendance)
+            .where(
+                and_(
+                    Attendance.student_id == data.student_id,
+                    Attendance.class_section_id == data.class_section_id,
+                    Attendance.date == date.today(),
+                )
+            )
+            .update({Attendance.status: data.status}, synchronize_session=False)
+        )
+
+    if updated_attendance != len(datas):
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Attendance not found for {date.today()}",
+        )
+
+    db.commit()
     return "done"
 
 
