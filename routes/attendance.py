@@ -8,13 +8,32 @@ from sqlalchemy.orm import Session
 
 from auth import require_role
 from db import get_db
-from models import Attendance, CreateAttendance
+from models import (
+    Attendance,
+    AttendanceCreateResponse,
+    AttendanceRecordResponse,
+    CreateAttendance,
+    OperationStatusResponse,
+)
 
-router = APIRouter()
+router = APIRouter(tags=["attendance"])
 
 
-@router.post("/attendance/bulk", dependencies=[Depends(require_role(["teacher"]))])
-def mark_bulk_attendance(datas: List[CreateAttendance], db: Session = Depends(get_db)):
+@router.post(
+    "/attendance/records/bulk",
+    response_model=OperationStatusResponse,
+    dependencies=[Depends(require_role(["teacher"]))],
+    summary="Create attendance records in bulk",
+)
+@router.post(
+    "/attendance/bulk",
+    include_in_schema=False,
+    response_model=OperationStatusResponse,
+    dependencies=[Depends(require_role(["teacher"]))],
+)
+def create_bulk_attendance_records(
+    datas: List[CreateAttendance], db: Session = Depends(get_db)
+):
     attendance = [
         Attendance(
             student_id=data.student_id,
@@ -33,11 +52,24 @@ def mark_bulk_attendance(datas: List[CreateAttendance], db: Session = Depends(ge
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Attendance already marked for {date.today()}",
         )
-    return "done"
+    return OperationStatusResponse(status="done")
 
 
-@router.put("/attendance/bulk", dependencies=[Depends(require_role(["teacher"]))])
-def update_bulk_attendance(datas: List[CreateAttendance], db: Session = Depends(get_db)):
+@router.put(
+    "/attendance/records/bulk",
+    response_model=OperationStatusResponse,
+    dependencies=[Depends(require_role(["teacher"]))],
+    summary="Update attendance records in bulk",
+)
+@router.put(
+    "/attendance/bulk",
+    include_in_schema=False,
+    response_model=OperationStatusResponse,
+    dependencies=[Depends(require_role(["teacher"]))],
+)
+def update_bulk_attendance_records(
+    datas: List[CreateAttendance], db: Session = Depends(get_db)
+):
     updated_attendance = 0
 
     for data in datas:
@@ -61,11 +93,22 @@ def update_bulk_attendance(datas: List[CreateAttendance], db: Session = Depends(
         )
 
     db.commit()
-    return "done"
+    return OperationStatusResponse(status="done")
 
 
-@router.post("/attendance", dependencies=[Depends(require_role(["teacher"]))])
-def mark_attendance(data: CreateAttendance, db: Session = Depends(get_db)):
+@router.post(
+    "/attendance/records",
+    response_model=AttendanceCreateResponse,
+    dependencies=[Depends(require_role(["teacher"]))],
+    summary="Create a single attendance record",
+)
+@router.post(
+    "/attendance",
+    include_in_schema=False,
+    response_model=AttendanceCreateResponse,
+    dependencies=[Depends(require_role(["teacher"]))],
+)
+def create_attendance_record(data: CreateAttendance, db: Session = Depends(get_db)):
     try:
         attendance = Attendance(
             student_id=data.student_id,
@@ -84,11 +127,24 @@ def mark_attendance(data: CreateAttendance, db: Session = Depends(get_db)):
             detail=f"Attendance already marked for {date.today()}",
         )
 
-    return attendance.student_id
+    return AttendanceCreateResponse(student_id=attendance.student_id)
 
 
-@router.get("/attendance/today", dependencies=[Depends(require_role(["teacher"]))])
-def get_attendance(class_section_id: int, db: Session = Depends(get_db)):
+@router.get(
+    "/attendance/records/today",
+    response_model=list[AttendanceRecordResponse],
+    dependencies=[Depends(require_role(["teacher"]))],
+    summary="List today's attendance records for a class section",
+)
+@router.get(
+    "/attendance/today",
+    include_in_schema=False,
+    response_model=list[AttendanceRecordResponse],
+    dependencies=[Depends(require_role(["teacher"]))],
+)
+def list_today_attendance_records(
+    class_section_id: int, db: Session = Depends(get_db)
+):
     data = (
         db.query(Attendance)
         .where(
@@ -101,10 +157,10 @@ def get_attendance(class_section_id: int, db: Session = Depends(get_db)):
     )
 
     return [
-        {
-            "student_id": d.student_id,
-            "class_section_id": d.class_section_id,
-            "status": d.status,
-        }
+        AttendanceRecordResponse(
+            student_id=d.student_id,
+            class_section_id=d.class_section_id,
+            status=d.status,
+        )
         for d in data
     ]

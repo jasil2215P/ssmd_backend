@@ -12,7 +12,10 @@ os.environ["JWT_REFRESH_SECRET"] = "test-refresh-secret"
 
 from db import Base, SessionLocal, engine
 from models import Attendance, ClassSections, CreateAttendance, Students
-from routes.attendance import mark_bulk_attendance, update_bulk_attendance
+from routes.attendance import (
+    create_bulk_attendance_records,
+    update_bulk_attendance_records,
+)
 
 
 class AttendanceRouteTests(unittest.TestCase):
@@ -23,6 +26,7 @@ class AttendanceRouteTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         Base.metadata.drop_all(bind=engine)
+        engine.dispose()
         TMP_DIR.cleanup()
 
     def setUp(self):
@@ -49,7 +53,7 @@ class AttendanceRouteTests(unittest.TestCase):
         self.db.close()
 
     def test_update_bulk_attendance_updates_existing_rows_for_today(self):
-        mark_bulk_attendance(
+        create_bulk_attendance_records(
             [
                 CreateAttendance(
                     student_id=self.student_1_id,
@@ -65,12 +69,12 @@ class AttendanceRouteTests(unittest.TestCase):
             db=self.db,
         )
 
-        result = update_bulk_attendance(
+        result = update_bulk_attendance_records(
             [
                 CreateAttendance(
                     student_id=self.student_1_id,
                     class_section_id=self.class_section_id,
-                    status="leave",
+                    status="absent",
                 ),
                 CreateAttendance(
                     student_id=self.student_2_id,
@@ -87,12 +91,12 @@ class AttendanceRouteTests(unittest.TestCase):
             .all()
         )
 
-        self.assertEqual(result, "done")
-        self.assertEqual([row.status for row in rows], ["leave", "present"])
+        self.assertEqual(result.status, "done")
+        self.assertEqual([row.status for row in rows], ["absent", "present"])
 
     def test_update_bulk_attendance_returns_404_when_any_row_is_missing(self):
         with self.assertRaises(HTTPException) as context:
-            update_bulk_attendance(
+            update_bulk_attendance_records(
                 [
                     CreateAttendance(
                         student_id=self.student_1_id,

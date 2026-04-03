@@ -17,12 +17,17 @@ from auth import (
     get_user,
 )
 from db import get_db
-from models import RefreshToken
+from models import RefreshToken, TokenResponse
 
-router = APIRouter()
+router = APIRouter(tags=["auth"])
 
 
-@router.post("/token")
+@router.post(
+    "/auth/tokens",
+    response_model=TokenResponse,
+    summary="Login and create auth tokens",
+)
+@router.post("/token", include_in_schema=False, response_model=TokenResponse)
 async def login(
     response: Response,
     form: OAuth2PasswordRequestForm = Depends(),
@@ -63,10 +68,15 @@ async def login(
         samesite="lax",
         max_age=JWT_REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60,
     )
-    return {"access_token": access_token, "token_type": "bearer"}
+    return TokenResponse(access_token=access_token, token_type="bearer")
 
 
-@router.post("/refresh")
+@router.post(
+    "/auth/tokens/refresh",
+    response_model=TokenResponse,
+    summary="Refresh auth tokens",
+)
+@router.post("/refresh", include_in_schema=False, response_model=TokenResponse)
 async def refresh(
     response: Response,
     refresh_token: Annotated[str | None, Cookie()] = None,
@@ -123,7 +133,7 @@ async def refresh(
         samesite="lax",
         max_age=JWT_REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60,
     )
-    return {"access_token": access_token, "token_type": "bearer"}
+    return TokenResponse(access_token=access_token, token_type="bearer")
 
 
 def check_and_delete_refresh_token(

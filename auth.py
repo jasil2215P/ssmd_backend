@@ -11,7 +11,7 @@ from models import TokenData, UserInDb
 from dotenv import load_dotenv
 import os
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/tokens")
 password_hash = PasswordHash.recommended()
 
 

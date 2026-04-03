@@ -5,14 +5,33 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from auth import get_current_user, require_role
 from db import get_db
-from models import AnnouncementCreate, AnnouncementPosts, AnnouncementRoles, User, Users
+from models import (
+    AnnouncementCreate,
+    AnnouncementCreateResponse,
+    AnnouncementPosts,
+    AnnouncementResponse,
+    AnnouncementRoles,
+    DeleteResponse,
+    User,
+    UserRole,
+    Users,
+)
 
-router = APIRouter()
-ALLOWED_ANNOUNCEMENT_ROLES = {"teacher", "student"}
+router = APIRouter(tags=["announcements"])
+ALLOWED_ANNOUNCEMENT_ROLES = {UserRole.TEACHER, UserRole.STUDENT}
 
 
-@router.get("/announcements/all")
-def get_announcements(
+@router.get(
+    "/announcements",
+    response_model=list[AnnouncementResponse],
+    summary="List announcements for the current user",
+)
+@router.get(
+    "/announcements/all",
+    include_in_schema=False,
+    response_model=list[AnnouncementResponse],
+)
+def list_announcements(
     current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     data = (
@@ -30,19 +49,28 @@ def get_announcements(
     )
 
     return [
-        {
-            "id": d.id,
-            "subject": d.subject,
-            "details": d.details,
-            "username": d.user.username,
-            "date": d.date,
-        }
+        AnnouncementResponse(
+            id=d.id,
+            subject=d.subject,
+            details=d.details,
+            username=d.user.username,
+            date=d.date,
+        )
         for d in data
     ]
 
 
-@router.get("/announcements/me")
-def get_ones_announcements(
+@router.get(
+    "/announcements/mine",
+    response_model=list[AnnouncementResponse],
+    summary="List announcements created by the current user",
+)
+@router.get(
+    "/announcements/me",
+    include_in_schema=False,
+    response_model=list[AnnouncementResponse],
+)
+def list_my_announcements(
     current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     data = (
@@ -56,24 +84,33 @@ def get_ones_announcements(
         .where(AnnouncementPosts.issuer == current_user.id)
     ).all()
     return [
-        {
-            "id": d.id,
-            "subject": d.subject,
-            "details": d.details,
-            "username": d.user.username,
-            "date": d.date,
-        }
+        AnnouncementResponse(
+            id=d.id,
+            subject=d.subject,
+            details=d.details,
+            username=d.user.username,
+            date=d.date,
+        )
         for d in data
     ]
 
 
-@router.delete("/announcement", dependencies=[Depends(require_role(["teacher"]))])
-def delete_announcements(
-    id: int,
+@router.delete(
+    "/announcements/{announcement_id}",
+    response_model=DeleteResponse,
+    dependencies=[Depends(require_role(["teacher"]))],
+    summary="Delete an announcement created by the current user",
+)
+def delete_announcement(
+    announcement_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    post = db.query(AnnouncementPosts).filter(AnnouncementPosts.id == id).first()
+    post = (
+        db.query(AnnouncementPosts)
+        .filter(AnnouncementPosts.id == announcement_id)
+        .first()
+    )
     if post is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -87,12 +124,12 @@ def delete_announcements(
 
     try:
         db.query(AnnouncementRoles).filter(
-            AnnouncementRoles.announcement_post_id == id
+            AnnouncementRoles.announcement_post_id == announcement_id
         ).delete()
         db.delete(post)
 
         db.commit()
-        return {"done": True}
+        return DeleteResponse(done=True)
     except IntegrityError:
         db.rollback()
         raise HTTPException(
@@ -101,8 +138,13 @@ def delete_announcements(
         )
 
 
-@router.post("/announcements", dependencies=[Depends(require_role(["teacher"]))])
-def post_announcements(
+@router.post(
+    "/announcements",
+    response_model=AnnouncementCreateResponse,
+    dependencies=[Depends(require_role(["teacher"]))],
+    summary="Create an announcement",
+)
+def create_announcement(
     data: AnnouncementCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -127,12 +169,12 @@ def post_announcements(
 
         db.refresh(post)
 
-        for role in sorted(set(data.roles)):
+        for role in sorted(set(data.roles), key=str):
             role_entry = AnnouncementRoles(announcement_post_id=post.id, for_role=role)
             db.add(role_entry)
         db.commit()
 
-        return {"id": post.id}
+        return AnnouncementCreateResponse(id=post.id)
     except Exception:
         db.rollback()
         raise HTTPException(

@@ -6,7 +6,20 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user, require_role
 from db import get_db
-from models import ClassSections, Staff, StudentEnrollments, Students, Subjects, User
+from models import (
+    ClassSectionResponse,
+    ClassSections,
+    GenericUserRoleResponse,
+    Staff,
+    StudentEnrollments,
+    StudentInfoResponse,
+    StudentProfileResponse,
+    StudentSummaryResponse,
+    Students,
+    Subjects,
+    TeacherProfileResponse,
+    User,
+)
 from routes import announcements, attendance, health_check
 from routes.auth import token
 
@@ -19,9 +32,19 @@ app.include_router(announcements.router)
 
 
 @app.get(
-    "/students/{student_id}/all", dependencies=[Depends(require_role(["teacher"]))]
+    "/students/{student_id}",
+    response_model=StudentInfoResponse,
+    dependencies=[Depends(require_role(["teacher"]))],
+    tags=["students"],
+    summary="Get a student's enrollment details",
 )
-def get_student_info(student_id: int, db: Session = Depends(get_db)):
+@app.get(
+    "/students/{student_id}/all",
+    include_in_schema=False,
+    response_model=StudentInfoResponse,
+    dependencies=[Depends(require_role(["teacher"]))],
+)
+def get_student_details(student_id: int, db: Session = Depends(get_db)):
     data = (
         db.query(Students)
         .join(StudentEnrollments)
@@ -35,52 +58,99 @@ def get_student_info(student_id: int, db: Session = Depends(get_db)):
         .one()
     )
 
-    return {
-        "roll_no": data.student_enrollments[0].roll_no,
-        "name": data.name,
-        "father_name": data.father_name,
-        "mother_name": data.mother_name,
-        "admission_date": data.admission_date,
-        "class_name": data.student_enrollments[0].class_sections.class_name,
-        "section": data.student_enrollments[0].class_sections.section,
-        "academic_year": data.student_enrollments[0].class_sections.academic_year,
-    }
+    return StudentInfoResponse(
+        roll_no=data.student_enrollments[0].roll_no,
+        name=data.name,
+        father_name=data.father_name,
+        mother_name=data.mother_name,
+        admission_date=data.admission_date,
+        class_name=data.student_enrollments[0].class_sections.class_name,
+        section=data.student_enrollments[0].class_sections.section,
+        academic_year=data.student_enrollments[0].class_sections.academic_year,
+    )
 
 
 @app.get(
+    "/class-sections",
+    response_model=list[ClassSectionResponse],
+    dependencies=[Depends(require_role(["teacher", "student"]))],
+    tags=["class-sections"],
+    summary="List class sections for the current academic year",
+)
+@app.get(
     "/classes",
+    include_in_schema=False,
+    response_model=list[ClassSectionResponse],
     dependencies=[Depends(require_role(["teacher", "student"]))],
 )
-def get_classes(db: Session = Depends(get_db)):
+def list_class_sections(db: Session = Depends(get_db)):
     classes = (
         db.query(ClassSections)
         .filter(ClassSections.academic_year == date.today().year)
         .all()
     )
 
-    return [vars(c) for c in classes]
+    return [
+        ClassSectionResponse(
+            id=class_section.id,
+            class_name=class_section.class_name,
+            section=class_section.section,
+            academic_year=class_section.academic_year,
+        )
+        for class_section in classes
+    ]
 
 
 @app.get(
-    "/classes/{class_id}/students", dependencies=[Depends(require_role(["teacher"]))]
+    "/class-sections/{class_section_id}/students",
+    response_model=list[StudentSummaryResponse],
+    dependencies=[Depends(require_role(["teacher"]))],
+    tags=["class-sections"],
+    summary="List students in a class section",
 )
-def get_students_of_class(class_id: int, db: Session = Depends(get_db)):
+@app.get(
+    "/classes/{class_section_id}/students",
+    include_in_schema=False,
+    response_model=list[StudentSummaryResponse],
+    dependencies=[Depends(require_role(["teacher"]))],
+)
+def list_students_in_class_section(
+    class_section_id: int, db: Session = Depends(get_db)
+):
     data = (
         db.query(StudentEnrollments)
         .join(Students)
-        .filter(StudentEnrollments.class_section_id == class_id)
+        .filter(StudentEnrollments.class_section_id == class_section_id)
         .order_by(StudentEnrollments.roll_no)
         .all()
     )
 
     return [
-        {"id": d.students.id, "roll_no": d.roll_no, "name": d.students.name}
+        StudentSummaryResponse(
+            id=d.students.id,
+            roll_no=d.roll_no,
+            name=d.students.name,
+        )
         for d in data
     ]
 
 
-@app.get("/user/me")
-def about_user(
+@app.get(
+    "/users/me",
+    response_model=(
+        StudentProfileResponse | TeacherProfileResponse | GenericUserRoleResponse
+    ),
+    tags=["users"],
+    summary="Get the current user's profile",
+)
+@app.get(
+    "/user/me",
+    include_in_schema=False,
+    response_model=(
+        StudentProfileResponse | TeacherProfileResponse | GenericUserRoleResponse
+    ),
+)
+def get_current_user_profile(
     current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     current_role = current_user.role
@@ -89,7 +159,7 @@ def about_user(
     elif current_role == "teacher":
         return get_teacher_data(db, user_id=current_user.id)
     else:
-        return current_role
+        return GenericUserRoleResponse(role=current_role)
 
 
 def get_student_data(db: Session, user_id):
@@ -103,17 +173,17 @@ def get_student_data(db: Session, user_id):
         .one()
     )
 
-    return {
-        "id": data.id,
-        "name": data.name,
-        "reg_no": data.reg_no,
-        "father_name": data.father_name,
-        "mother_name": data.mother_name,
-        "admission_date": data.admission_date,
-        "class_name": data.student_enrollments[0].class_sections.class_name,
-        "section": data.student_enrollments[0].class_sections.section,
-        "academic_year": data.student_enrollments[0].class_sections.academic_year,
-    }
+    return StudentProfileResponse(
+        id=data.id,
+        name=data.name,
+        reg_no=data.reg_no,
+        father_name=data.father_name,
+        mother_name=data.mother_name,
+        admission_date=data.admission_date,
+        class_name=data.student_enrollments[0].class_sections.class_name,
+        section=data.student_enrollments[0].class_sections.section,
+        academic_year=data.student_enrollments[0].class_sections.academic_year,
+    )
 
 
 def get_teacher_data(db: Session, user_id):
@@ -125,9 +195,9 @@ def get_teacher_data(db: Session, user_id):
         .one()
     )
 
-    return {
-        "id": data.id,
-        "name": data.name,
-        "position": data.position,
-        "subject": data.subject,
-    }
+    return TeacherProfileResponse(
+        id=data.id,
+        name=data.name,
+        position=data.position,
+        subject=data.subject,
+    )

@@ -1,4 +1,5 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from enum import StrEnum
 from pydantic import BaseModel
 from typing import List
 
@@ -16,10 +17,20 @@ from sqlalchemy.orm import relationship
 from db import Base
 
 
+class UserRole(StrEnum):
+    STUDENT = "student"
+    TEACHER = "teacher"
+
+
+class AttendanceStatus(StrEnum):
+    PRESENT = "present"
+    ABSENT = "absent"
+
+
 class User(BaseModel):
     id: int
     username: str
-    role: str
+    role: UserRole
 
 
 class UserInDb(User):
@@ -37,13 +48,99 @@ class TokenData(BaseModel):
 class CreateAttendance(BaseModel):
     student_id: int
     class_section_id: int
-    status: str
+    status: AttendanceStatus
 
 
 class AnnouncementCreate(BaseModel):
     subject: str
     details: str
-    roles: List[str]
+    roles: List[UserRole]
+
+
+class HealthCheckResponse(BaseModel):
+    status: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str
+
+
+class OperationStatusResponse(BaseModel):
+    status: str
+
+
+class DeleteResponse(BaseModel):
+    done: bool
+
+
+class AttendanceCreateResponse(BaseModel):
+    student_id: int
+
+
+class AttendanceRecordResponse(BaseModel):
+    student_id: int
+    class_section_id: int
+    status: AttendanceStatus
+
+
+class AnnouncementResponse(BaseModel):
+    id: int
+    subject: str
+    details: str
+    username: str
+    date: date
+
+
+class AnnouncementCreateResponse(BaseModel):
+    id: int
+
+
+class StudentInfoResponse(BaseModel):
+    roll_no: int
+    name: str
+    father_name: str
+    mother_name: str
+    admission_date: date
+    class_name: str
+    section: str
+    academic_year: int
+
+
+class ClassSectionResponse(BaseModel):
+    id: int
+    class_name: str
+    section: str
+    academic_year: int
+
+
+class StudentSummaryResponse(BaseModel):
+    id: int
+    roll_no: int
+    name: str
+
+
+class StudentProfileResponse(BaseModel):
+    id: int
+    name: str
+    reg_no: int
+    father_name: str
+    mother_name: str
+    admission_date: date
+    class_name: str
+    section: str
+    academic_year: int
+
+
+class TeacherProfileResponse(BaseModel):
+    id: int
+    name: str
+    position: str
+    subject: int
+
+
+class GenericUserRoleResponse(BaseModel):
+    role: UserRole
 
 
 class Users(Base):
@@ -144,9 +241,7 @@ class Attendance(Base):
     status = Column(String(10), nullable=False)
 
     __table_args__ = (
-        CheckConstraint(
-            "status IN ('present', 'absent', 'leave')", name="valid_status"
-        ),
+        CheckConstraint("status IN ('present', 'absent')", name="valid_status"),
     )
 
     students = relationship("Students", back_populates="attendances")
