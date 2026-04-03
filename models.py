@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from pydantic import BaseModel
 from typing import List
 
@@ -5,6 +6,7 @@ from sqlalchemy import (
     CheckConstraint,
     Column,
     Date,
+    DateTime,
     ForeignKey,
     Integer,
     String,
@@ -24,9 +26,8 @@ class UserInDb(User):
     password_hash: str
 
 
-class Token(BaseModel):
-    access_token: str
-    token_type: str
+class RefreshRequest(BaseModel):
+    refresh_token: str
 
 
 class TokenData(BaseModel):
@@ -56,6 +57,7 @@ class Users(Base):
     students = relationship("Students", back_populates="user", uselist=False)
     staff = relationship("Staff", back_populates="user", uselist=False)
     announcement_posts = relationship("AnnouncementPosts", back_populates="user")
+    refresh_tokens = relationship("RefreshToken", back_populates="user")
 
 
 class ClassSections(Base):
@@ -189,7 +191,9 @@ class ClassSubjects(Base):
 
     class_sections = relationship("ClassSections", back_populates="class_subjects")
     subjects = relationship("Subjects", back_populates="class_subjects")
-    teaching_assignments = relationship("TeachingAssignments", back_populates="class_subjects")
+    teaching_assignments = relationship(
+        "TeachingAssignments", back_populates="class_subjects"
+    )
 
 
 class TeachingAssignments(Base):
@@ -200,7 +204,9 @@ class TeachingAssignments(Base):
     class_subject_id = Column(Integer, ForeignKey("class_subjects.id"))
 
     staff = relationship("Staff", back_populates="teaching_assignments")
-    class_subjects = relationship("ClassSubjects", back_populates="teaching_assignments")
+    class_subjects = relationship(
+        "ClassSubjects", back_populates="teaching_assignments"
+    )
 
 
 class Exams(Base):
@@ -239,3 +245,15 @@ class Marks(Base):
 
     students = relationship("Students", back_populates="marks")
     exam_subjects = relationship("ExamSubjects", back_populates="marks")
+
+
+class RefreshToken(Base):
+    __tablename__ = "refresh_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    token_hash = Column(String, unique=True, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=datetime.now(timezone.utc))
+
+    user = relationship("Users", back_populates="refresh_tokens")

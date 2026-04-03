@@ -1,0 +1,67 @@
+{
+  "pid": 32467,
+  "parent_pid": 32452,
+  "started_at": "2026-04-03T12:14:32.320Z",
+  "cwd": "/home/jasil/Documents/python/ssmd",
+  "notify_script": "/home/jasil/.npm-global/lib/node_modules/oh-my-codex/dist/scripts/notify-hook.js",
+  "poll_ms": 250,
+  "pid_file": "/home/jasil/Documents/python/ssmd/.omx/state/notify-fallback.pid",
+  "max_lifetime_ms": 21600000,
+  "tracked_files": 3,
+  "seen_turns": 2,
+  "dispatch_drain": {
+    "enabled": true,
+    "max_per_tick": 5,
+    "run_count": 9189,
+    "leader_only": true,
+    "last_tick_at": "2026-04-03T12:57:44.537Z",
+    "last_result": {
+      "processed": 0,
+      "skipped": 0,
+      "failed": 0
+    },
+    "last_error": null
+  },
+  "leader_nudge": {
+    "enabled": true,
+    "leader_only": true,
+    "stale_threshold_ms": 180000,
+    "precomputed_leader_stale": true,
+    "last_tick_at": "2026-04-03T12:57:44.538Z",
+    "last_error": null,
+    "run_count": 9189
+  },
+  "ralph_continue_steer": {
+    "enabled": true,
+    "cadence_ms": 60000,
+    "message": "Ralph loop active continue",
+    "active": false,
+    "last_state_check_at": "2026-04-03T12:57:44.568Z",
+    "last_sent_at": "",
+    "cooldown_anchor_at": "",
+    "last_reason": "blocked_by_current_session",
+    "last_error": null,
+    "state_path": "",
+    "pane_id": "",
+    "pane_current_command": "",
+    "current_phase": "",
+    "shared_timestamp_path": "/home/jasil/Documents/python/ssmd/.omx/state/ralph-last-steer-at",
+    "shared_last_sent_at": "",
+    "singleton_lock_path": "/home/jasil/Documents/python/ssmd/.omx/state/ralph-continue-steer.lock"
+  },
+  "fallback_auto_nudge": {
+    "enabled": true,
+    "stall_ms": 5000,
+    "last_tick_at": "2026-04-03T12:57:44.563Z",
+    "last_turn_at": "2026-04-03T12:53:51.346Z",
+    "last_turn_count": 3,
+    "last_message": "Done.\n\n### Changed files\n- `auth.py`\n- `routes/auth/token.py`\n- `routes/announcements.py`\n\nI left ex",
+    "last_reason": "eligible_but_not_sent",
+    "last_error": null,
+    "last_nudged_signature": "",
+    "last_nudged_at": ""
+  },
+  "stop_reason": "signal",
+  "stop_signal": "SIGTERM",
+  "stopping": true
+}
