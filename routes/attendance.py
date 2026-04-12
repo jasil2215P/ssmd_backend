@@ -1,5 +1,5 @@
 from datetime import date
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import and_
@@ -14,6 +14,7 @@ from models import (
     AttendanceRecordResponse,
     CreateAttendance,
     OperationStatusResponse,
+    StudentAttendanceResponse,
 )
 
 router = APIRouter(tags=["attendance"])
@@ -164,3 +165,35 @@ def list_today_attendance_records(
         )
         for d in data
     ]
+
+
+@router.get(
+    "/attendance/{student_id}",
+    response_model=StudentAttendanceResponse,
+    dependencies=[Depends(require_role(["teacher", "student"]))],
+    summary="Get a student's attendance status for a specific date or today",
+)
+def get_student_attendance_by_date(
+    student_id: int, attendance_date: date = date.today(), db: Session = Depends(get_db)
+):
+    attendance_record = (
+        db.query(Attendance)
+        .where(
+            and_(
+                Attendance.student_id == student_id, Attendance.date == attendance_date
+            )
+        )
+        .first()
+    )
+
+    if not attendance_record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Attendance record not found for student {student_id} on {attendance_date}",
+        )
+
+    return StudentAttendanceResponse(
+        student_id=attendance_record.student_id,
+        date=attendance_record.date,
+        status=attendance_record.status,
+    )

@@ -84,6 +84,12 @@ class AttendanceRecordResponse(BaseModel):
     status: AttendanceStatus
 
 
+class StudentAttendanceResponse(BaseModel):
+    student_id: int
+    date: date
+    status: AttendanceStatus
+
+
 class AnnouncementResponse(BaseModel):
     id: int
     subject: str

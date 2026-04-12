@@ -3,3 +3,9 @@
 __pycache__
 .omx
 .codex
+.git
+.pytest_cache
+.gemini
+GEMINI.md
+AGENTS.md
+graphify-out

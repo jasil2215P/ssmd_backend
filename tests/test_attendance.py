@@ -11,10 +11,11 @@ os.environ["JWT_SECRET"] = "test-secret"
 os.environ["JWT_REFRESH_SECRET"] = "test-refresh-secret"
 
 from db import Base, SessionLocal, engine
-from models import Attendance, ClassSections, CreateAttendance, Students
+from models import Attendance, ClassSections, CreateAttendance, Students, StudentAttendanceResponse
 from routes.attendance import (
     create_bulk_attendance_records,
     update_bulk_attendance_records,
+    get_student_attendance_by_date,
 )
 
 
@@ -111,6 +112,48 @@ class AttendanceRouteTests(unittest.TestCase):
         self.assertEqual(
             context.exception.detail,
             f"Attendance not found for {date.today()}",
+        )
+
+    def test_get_student_attendance_by_date_success_and_not_found(self):
+        # Create an attendance record for student_1 for today
+        create_bulk_attendance_records(
+            [
+                CreateAttendance(
+                    student_id=self.student_1_id,
+                    class_section_id=self.class_section_id,
+                    status="present",
+                )
+            ],
+            db=self.db,
+        )
+
+        # Test successful retrieval for student_1 today
+        attendance = get_student_attendance_by_date(
+            student_id=self.student_1_id, db=self.db
+        )
+        self.assertEqual(attendance.student_id, self.student_1_id)
+        self.assertEqual(attendance.date, date.today())
+        self.assertEqual(attendance.status, "present")
+
+        # Test retrieval for student_2 (no attendance record)
+        with self.assertRaises(HTTPException) as context:
+            get_student_attendance_by_date(student_id=self.student_2_id, db=self.db)
+        self.assertEqual(context.exception.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(
+            context.exception.detail,
+            f"Attendance record not found for student {self.student_2_id} on {date.today()}",
+        )
+
+        # Test retrieval for student_1 on a future date (no attendance record)
+        future_date = date.today().replace(year=date.today().year + 1)
+        with self.assertRaises(HTTPException) as context:
+            get_student_attendance_by_date(
+                student_id=self.student_1_id, attendance_date=future_date, db=self.db
+            )
+        self.assertEqual(context.exception.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(
+            context.exception.detail,
+            f"Attendance record not found for student {self.student_1_id} on {future_date}",
         )
 
 
