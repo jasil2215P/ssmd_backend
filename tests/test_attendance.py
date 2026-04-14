@@ -11,7 +11,7 @@ os.environ["JWT_SECRET"] = "test-secret"
 os.environ["JWT_REFRESH_SECRET"] = "test-refresh-secret"
 
 from db import Base, SessionLocal, engine
-from models import Attendance, ClassSections, CreateAttendance, Students, StudentAttendanceResponse
+from models import Attendance, ClassSections, CreateAttendance, Students, StudentAttendanceResponse, Users
 from routes.attendance import (
     create_bulk_attendance_records,
     update_bulk_attendance_records,
@@ -40,15 +40,23 @@ class AttendanceRouteTests(unittest.TestCase):
             section="A",
             academic_year=date.today().year,
         )
-        student_1 = Students(name="Alice", reg_no=1)
-        student_2 = Students(name="Bob", reg_no=2)
 
-        self.db.add_all([class_section, student_1, student_2])
+        user_1 = Users(username="alice", password_hash="x", role="student")
+        user_2 = Users(username="bob",   password_hash="x", role="student")
+        self.db.add_all([class_section, user_1, user_2])
+        self.db.flush()  # populates user_1.id, user_2.id before Students insert
+
+        student_1 = Students(user_id=user_1.id, name="Alice", reg_no=1,
+                            father_name="", mother_name="", admission_date=date.today())
+        student_2 = Students(user_id=user_2.id, name="Bob",   reg_no=2,
+                            father_name="", mother_name="", admission_date=date.today())
+
+        self.db.add_all([student_1, student_2])
         self.db.commit()
 
         self.class_section_id = class_section.id
-        self.student_1_id = student_1.id
-        self.student_2_id = student_2.id
+        self.student_1_id     = student_1.id
+        self.student_2_id     = student_2.id
 
     def tearDown(self):
         self.db.close()

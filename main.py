@@ -11,6 +11,7 @@ from models import (
     ClassSections,
     GenericUserRoleResponse,
     Staff,
+    StaffSubjects,
     StudentEnrollments,
     StudentInfoResponse,
     StudentProfileResponse,
@@ -64,9 +65,9 @@ def get_student_details(student_id: int, db: Session = Depends(get_db)):
         father_name=data.father_name,
         mother_name=data.mother_name,
         admission_date=data.admission_date,
-        class_name=data.student_enrollments[0].class_sections.class_name,
-        section=data.student_enrollments[0].class_sections.section,
-        academic_year=data.student_enrollments[0].class_sections.academic_year,
+        class_name=data.student_enrollments[0].class_section.class_name,
+        section=data.student_enrollments[0].class_section.section,
+        academic_year=data.student_enrollments[0].class_section.academic_year,
     )
 
 
@@ -127,9 +128,9 @@ def list_students_in_class_section(
 
     return [
         StudentSummaryResponse(
-            id=d.students.id,
+            id=d.student.id,
             roll_no=d.roll_no,
-            name=d.students.name,
+            name=d.student.name,
         )
         for d in data
     ]
@@ -180,24 +181,23 @@ def get_student_data(db: Session, user_id):
         father_name=data.father_name,
         mother_name=data.mother_name,
         admission_date=data.admission_date,
-        class_name=data.student_enrollments[0].class_sections.class_name,
-        section=data.student_enrollments[0].class_sections.section,
-        academic_year=data.student_enrollments[0].class_sections.academic_year,
+        class_name=data.student_enrollments[0].class_section.class_name,
+        section=data.student_enrollments[0].class_section.section,
+        academic_year=data.student_enrollments[0].class_section.academic_year,
     )
 
 
 def get_teacher_data(db: Session, user_id):
-    data = (
-        db.query(Staff)
-        .join(Subjects)
-        .filter(Staff.subject == Subjects.id)
-        .where(Staff.user_id == user_id)
-        .one()
-    )
+    staff = db.query(Staff).where(Staff.user_id == user_id).one()
+
+    subject_ids = [
+        row.subject_id
+        for row in db.query(StaffSubjects).where(StaffSubjects.staff_id == staff.id).all()
+    ]
 
     return TeacherProfileResponse(
-        id=data.id,
-        name=data.name,
-        position=data.position,
-        subject=data.subject,
+        id=staff.id,
+        name=staff.name,
+        position=staff.position,
+        subjects=subject_ids,
     )
