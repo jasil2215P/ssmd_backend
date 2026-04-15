@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List
 
 from fastapi import Depends, HTTPException, status
@@ -98,7 +98,7 @@ def create_token(data, expire: datetime, secret):
 def create_access_token(username: str, role: str):
     return create_token(
         {"sub": username, "role": role, "type": "access"},
-        datetime.now() + timedelta(minutes=JWT_ACCESS_TOKEN_EXPIRY_MINUTES),
+        datetime.now(timezone.utc) + timedelta(minutes=JWT_ACCESS_TOKEN_EXPIRY_MINUTES),
         JWT_SECRET,
     )
 
@@ -108,7 +108,7 @@ def create_refresh_token(
     expires: datetime | None = None,
 ):
     if expires is None:
-        expires = datetime.now() + timedelta(days=JWT_REFRESH_TOKEN_EXPIRY_DAYS)
+        expires = datetime.now(timezone.utc) + timedelta(days=JWT_REFRESH_TOKEN_EXPIRY_DAYS)
     return create_token(
         {"sub": username, "type": "refresh"},
         expires,

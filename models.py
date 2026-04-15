@@ -145,6 +145,7 @@ class TeacherProfileResponse(BaseModel):
     id: int
     name: str
     position: str
+    subjects: List[int]
 
 
 class GenericUserRoleResponse(BaseModel):

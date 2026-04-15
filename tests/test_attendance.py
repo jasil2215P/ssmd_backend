@@ -164,6 +164,29 @@ class AttendanceRouteTests(unittest.TestCase):
             f"Attendance record not found for student {self.student_1_id} on {future_date}",
         )
 
+    def test_attendance_unique_constraint(self):
+        from sqlalchemy.exc import IntegrityError
+        # First insertion
+        record1 = Attendance(
+            student_id=self.student_1_id,
+            class_section_id=self.class_section_id,
+            date=date.today(),
+            status="present",
+        )
+        self.db.add(record1)
+        self.db.commit()
+
+        # Second insertion with same student, section, date
+        record2 = Attendance(
+            student_id=self.student_1_id,
+            class_section_id=self.class_section_id,
+            date=date.today(),
+            status="absent",
+        )
+        self.db.add(record2)
+        with self.assertRaises(IntegrityError):
+            self.db.commit()
+
 
 if __name__ == "__main__":
     unittest.main()

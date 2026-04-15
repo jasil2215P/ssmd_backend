@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Annotated
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -41,7 +41,7 @@ async def login(
             detail="Incorrect username or password",
         )
 
-    refresh_token_expires_at = datetime.now() + timedelta(
+    refresh_token_expires_at = datetime.now(timezone.utc) + timedelta(
         days=JWT_REFRESH_TOKEN_EXPIRY_DAYS
     )
     access_token = create_access_token(username=user.username, role=user.role)
@@ -100,7 +100,7 @@ async def refresh(
     except JWTError:
         raise credential_error
 
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     if not check_and_delete_refresh_token(hash_token(refresh_token), db, now):
         raise credential_error
 
@@ -160,4 +160,4 @@ def hash_token(token: str):
 
 
 def cleanup_refresh_tokens(db: Session):
-    db.query(RefreshToken).where(RefreshToken.expires_at < datetime.now()).delete()
+    db.query(RefreshToken).where(RefreshToken.expires_at < datetime.now(timezone.utc)).delete()
