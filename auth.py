@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import List
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from pwdlib import PasswordHash
@@ -30,6 +30,27 @@ ALGORITHM = "HS256"
 JWT_ACCESS_TOKEN_EXPIRY_MINUTES = 30
 JWT_REFRESH_TOKEN_EXPIRY_DAYS = 7
 DUMMY_HASH = password_hash.hash("dummy pwd")
+
+
+async def user_or_ip_identifier(request: Request):
+    # Try to get user from token
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+        try:
+            # We use JWT_SECRET and ALGORITHM from this module
+            decoded = jwt.decode(token, JWT_SECRET, [ALGORITHM])
+            username = decoded.get("sub")
+            if username:
+                return f"user:{username}"
+        except JWTError:
+            pass
+
+    # Fallback to IP
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return f"ip:{forwarded.split(',')[0].strip()}"
+    return f"ip:{request.client.host}"
 
 
 def get_current_user(db=Depends(get_db), token: str = Depends(oauth2_scheme)):

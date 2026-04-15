@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
+from fastapi_limiter.depends import RateLimiter
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
@@ -26,8 +27,14 @@ router = APIRouter(tags=["auth"])
     "/auth/tokens",
     response_model=TokenResponse,
     summary="Login and create auth tokens",
+    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
 )
-@router.post("/token", include_in_schema=False, response_model=TokenResponse)
+@router.post(
+    "/token",
+    include_in_schema=False,
+    response_model=TokenResponse,
+    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+)
 async def login(
     response: Response,
     form: OAuth2PasswordRequestForm = Depends(),
@@ -75,8 +82,14 @@ async def login(
     "/auth/tokens/refresh",
     response_model=TokenResponse,
     summary="Refresh auth tokens",
+    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
 )
-@router.post("/refresh", include_in_schema=False, response_model=TokenResponse)
+@router.post(
+    "/refresh",
+    include_in_schema=False,
+    response_model=TokenResponse,
+    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+)
 async def refresh(
     response: Response,
     refresh_token: Annotated[str | None, Cookie()] = None,

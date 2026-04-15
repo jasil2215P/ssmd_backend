@@ -7,6 +7,7 @@ requires-python = ">=3.14"
 dependencies = [
   "alembic>=1.18.4",
   "fastapi>=0.135.2",
+  "fastapi-limiter==0.1.6",
   "gunicorn>=25.3.0",
   "psycopg2-binary>=2.9.11",
   "pwdlib[argon2]>=0.3.0",
@@ -14,6 +15,7 @@ dependencies = [
   "python-dotenv>=1.2.2",
   "python-jose[cryptography]>=3.5.0",
   "python-multipart>=0.0.22",
+  "redis>=7.4.0",
   "sqlalchemy>=2.0.48",
   "uvicorn>=0.42.0",
 ]

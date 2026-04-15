@@ -1,10 +1,15 @@
+from contextlib import asynccontextmanager
 from datetime import date
 
+import redis.asyncio as redis
+import os
 from fastapi import Depends, FastAPI
+from fastapi_limiter import FastAPILimiter
+from fastapi_limiter.depends import RateLimiter
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
-from auth import get_current_user, require_role
+from auth import get_current_user, require_role, user_or_ip_identifier
 from db import get_db
 from models import (
     ClassSectionResponse,
@@ -15,15 +20,31 @@ from models import (
     StudentEnrollments,
     StudentInfoResponse,
     StudentProfileResponse,
-    StudentSummaryResponse,
     Students,
+    StudentSummaryResponse,
     TeacherProfileResponse,
     User,
 )
 from routes import announcements, attendance, health_check
 from routes.auth import token
 
-app = FastAPI(title="SSMD", description="Main API for SSMD school management software.")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+    redis_client = redis.from_url(redis_url, decode_responses=True)
+    await FastAPILimiter.init(redis_client, identifier=user_or_ip_identifier)
+    yield
+
+    await redis_client.close()
+
+
+app = FastAPI(
+    title="SSMD",
+    description="Main API for SSMD school management software.",
+    lifespan=lifespan,
+    dependencies=[Depends(RateLimiter(times=100, seconds=60))],
+)
 
 app.include_router(attendance.router)
 app.include_router(token.router)
