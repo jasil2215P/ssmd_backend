@@ -11,7 +11,7 @@ os.environ["JWT_SECRET"] = "test-secret"
 os.environ["JWT_REFRESH_SECRET"] = "test-refresh-secret"
 
 from db import Base, SessionLocal, engine
-from models import Attendance, ClassSections, CreateAttendance, Students, StudentAttendanceResponse, Users
+from models import Attendance, ClassSections, CreateAttendance, Students, Users
 from routes.attendance import (
     create_bulk_attendance_records,
     update_bulk_attendance_records,

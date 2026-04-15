@@ -17,7 +17,6 @@ from models import (
     StudentProfileResponse,
     StudentSummaryResponse,
     Students,
-    Subjects,
     TeacherProfileResponse,
     User,
 )
@@ -192,7 +191,9 @@ def get_teacher_data(db: Session, user_id):
 
     subject_ids = [
         row.subject_id
-        for row in db.query(StaffSubjects).where(StaffSubjects.staff_id == staff.id).all()
+        for row in db.query(StaffSubjects)
+        .where(StaffSubjects.staff_id == staff.id)
+        .all()
     ]
 
     return TeacherProfileResponse(
