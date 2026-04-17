@@ -1,15 +1,20 @@
 from contextlib import asynccontextmanager
 from datetime import date
+import time
 
 import redis.asyncio as redis
 import os
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request, Response
 from fastapi_limiter import FastAPILimiter
 from fastapi_limiter.depends import RateLimiter
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
 from auth import get_current_user, require_role, user_or_ip_identifier
+from logger import configure_logging, get_logger
+
+configure_logging()
+_log = get_logger(__name__)
 from db import get_db
 from models import (
     ClassSectionResponse,
@@ -31,12 +36,18 @@ from routes.auth import token
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _log.info(
+        "Starting SSMD API",
+        extra={"environment": os.getenv("ENVIRONMENT", "development")},
+    )
     redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
     redis_client = redis.from_url(redis_url, decode_responses=True)
     await FastAPILimiter.init(redis_client, identifier=user_or_ip_identifier)
+    _log.info("Rate-limiter connected", extra={"redis_url": redis_url})
     yield
 
     await redis_client.close()
+    _log.info("SSMD API shut down")
 
 
 app = FastAPI(
@@ -50,6 +61,35 @@ app.include_router(attendance.router)
 app.include_router(token.router)
 app.include_router(health_check.router)
 app.include_router(announcements.router)
+
+
+@app.middleware("http")
+async def _log_requests(request: Request, call_next) -> Response:
+    """Log every HTTP request with method, path, status code, and duration."""
+    start = time.perf_counter()
+    identity = await user_or_ip_identifier(request)
+    response: Response = await call_next(request)
+    duration_ms = (time.perf_counter() - start) * 1_000
+
+    level = (
+        _log.warning if response.status_code >= 400
+        else _log.info
+    )
+    level(
+        "%s %s → %d  (%.1f ms)",
+        request.method,
+        request.url.path,
+        response.status_code,
+        duration_ms,
+        extra={
+            "method": request.method,
+            "path": request.url.path,
+            "status_code": response.status_code,
+            "duration_ms": round(duration_ms, 2),
+            "client": identity,
+        },
+    )
+    return response
 
 
 @app.get(
@@ -66,6 +106,7 @@ app.include_router(announcements.router)
     dependencies=[Depends(require_role(["teacher"]))],
 )
 def get_student_details(student_id: int, db: Session = Depends(get_db)):
+    _log.debug("Fetching student details", extra={"student_id": student_id})
     data = (
         db.query(Students)
         .join(StudentEnrollments)
