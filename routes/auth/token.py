@@ -27,7 +27,6 @@ router = APIRouter(tags=["auth"])
     response_model=TokenResponse,
     summary="Login and create auth tokens",
 )
-@router.post("/token", include_in_schema=False, response_model=TokenResponse)
 async def login(
     response: Response,
     form: OAuth2PasswordRequestForm = Depends(),
@@ -76,7 +75,6 @@ async def login(
     response_model=TokenResponse,
     summary="Refresh auth tokens",
 )
-@router.post("/refresh", include_in_schema=False, response_model=TokenResponse)
 async def refresh(
     response: Response,
     refresh_token: Annotated[str | None, Cookie()] = None,
@@ -160,4 +158,6 @@ def hash_token(token: str):
 
 
 def cleanup_refresh_tokens(db: Session):
-    db.query(RefreshToken).where(RefreshToken.expires_at < datetime.now(timezone.utc)).delete()
+    db.query(RefreshToken).where(
+        RefreshToken.expires_at < datetime.now(timezone.utc)
+    ).delete()

@@ -38,12 +38,6 @@ app.include_router(announcements.router)
     tags=["students"],
     summary="Get a student's enrollment details",
 )
-@app.get(
-    "/students/{student_id}/all",
-    include_in_schema=False,
-    response_model=StudentInfoResponse,
-    dependencies=[Depends(require_role(["teacher"]))],
-)
 def get_student_details(student_id: int, db: Session = Depends(get_db)):
     data = (
         db.query(Students)
@@ -77,12 +71,6 @@ def get_student_details(student_id: int, db: Session = Depends(get_db)):
     tags=["class-sections"],
     summary="List class sections for the current academic year",
 )
-@app.get(
-    "/classes",
-    include_in_schema=False,
-    response_model=list[ClassSectionResponse],
-    dependencies=[Depends(require_role(["teacher", "student"]))],
-)
 def list_class_sections(db: Session = Depends(get_db)):
     classes = (
         db.query(ClassSections)
@@ -107,12 +95,6 @@ def list_class_sections(db: Session = Depends(get_db)):
     dependencies=[Depends(require_role(["teacher"]))],
     tags=["class-sections"],
     summary="List students in a class section",
-)
-@app.get(
-    "/classes/{class_section_id}/students",
-    include_in_schema=False,
-    response_model=list[StudentSummaryResponse],
-    dependencies=[Depends(require_role(["teacher"]))],
 )
 def list_students_in_class_section(
     class_section_id: int, db: Session = Depends(get_db)
@@ -142,13 +124,6 @@ def list_students_in_class_section(
     ),
     tags=["users"],
     summary="Get the current user's profile",
-)
-@app.get(
-    "/user/me",
-    include_in_schema=False,
-    response_model=(
-        StudentProfileResponse | TeacherProfileResponse | GenericUserRoleResponse
-    ),
 )
 def get_current_user_profile(
     current_user: User = Depends(get_current_user), db: Session = Depends(get_db)

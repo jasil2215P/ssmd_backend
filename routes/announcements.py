@@ -26,11 +26,6 @@ ALLOWED_ANNOUNCEMENT_ROLES = {UserRole.TEACHER, UserRole.STUDENT}
     response_model=list[AnnouncementResponse],
     summary="List announcements for the current user",
 )
-@router.get(
-    "/announcements/all",
-    include_in_schema=False,
-    response_model=list[AnnouncementResponse],
-)
 def list_announcements(
     current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
@@ -64,11 +59,6 @@ def list_announcements(
     "/announcements/mine",
     response_model=list[AnnouncementResponse],
     summary="List announcements created by the current user",
-)
-@router.get(
-    "/announcements/me",
-    include_in_schema=False,
-    response_model=list[AnnouncementResponse],
 )
 def list_my_announcements(
     current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
