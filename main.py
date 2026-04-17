@@ -2,7 +2,6 @@ from contextlib import asynccontextmanager
 from datetime import date
 import time
 
-import redis.asyncio as redis
 import os
 from fastapi import Depends, FastAPI, Request, Response
 from fastapi_limiter import FastAPILimiter
@@ -12,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user, require_role, user_or_ip_identifier
 from logger import configure_logging, get_logger
+from redis_client import redis_client
 
 configure_logging()
 _log = get_logger(__name__)
@@ -40,10 +40,8 @@ async def lifespan(app: FastAPI):
         "Starting SSMD API",
         extra={"environment": os.getenv("ENVIRONMENT", "development")},
     )
-    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
-    redis_client = redis.from_url(redis_url, decode_responses=True)
     await FastAPILimiter.init(redis_client, identifier=user_or_ip_identifier)
-    _log.info("Rate-limiter connected", extra={"redis_url": redis_url})
+    _log.info("Rate-limiter connected")
     yield
 
     await redis_client.close()

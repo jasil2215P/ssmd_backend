@@ -1,24 +1,27 @@
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from fastapi_limiter.depends import RateLimiter
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
-import hashlib
 import os
 
 from auth import (
     ALGORITHM,
+    JWT_SECRET,
     JWT_REFRESH_SECRET,
     JWT_REFRESH_TOKEN_EXPIRY_DAYS,
     authenticate_user,
     create_access_token,
     create_refresh_token,
+    get_current_user,
     get_user,
+    hash_token,
 )
 from db import get_db
-from models import RefreshToken, TokenResponse
+from models import OperationStatusResponse, RefreshToken, TokenResponse, User
+from redis_client import redis_client
 
 router = APIRouter(tags=["auth"])
 
@@ -76,6 +79,46 @@ async def login(
         max_age=JWT_REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60,
     )
     return TokenResponse(access_token=access_token, token_type="bearer")
+
+
+@router.post(
+    "/auth/logout",
+    response_model=OperationStatusResponse,
+    summary="Logout and invalidate tokens",
+)
+async def logout(
+    response: Response,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    refresh_token: Annotated[str | None, Cookie()] = None,
+):
+    # Blacklist Access Token
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        access_token = auth_header.split(" ")[1]
+        try:
+            # Decode to get expiration time
+            decoded = jwt.decode(access_token, JWT_SECRET, [ALGORITHM])
+            exp = decoded.get("exp")
+            if exp:
+                now = datetime.now(timezone.utc).timestamp()
+                ttl = int(exp - now)
+                if ttl > 0:
+                    token_hash = hash_token(access_token)
+                    await redis_client.setex(f"blacklist:{token_hash}", ttl, "1")
+        except JWTError:
+            # Token might be invalid, but we are logging out anyway
+            pass
+
+    # Invalidate Refresh Token
+    if refresh_token:
+        check_and_delete_refresh_token(
+            hash_token(refresh_token), db, datetime.now(timezone.utc)
+        )
+        response.delete_cookie(key="refresh_token")
+
+    return OperationStatusResponse(status="success")
 
 
 @router.post(
@@ -166,10 +209,6 @@ def check_and_delete_refresh_token(
         return False
     else:
         return True
-
-
-def hash_token(token: str):
-    return hashlib.sha256(token.encode()).hexdigest()
 
 
 def cleanup_refresh_tokens(db: Session):

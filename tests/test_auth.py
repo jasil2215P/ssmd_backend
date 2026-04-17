@@ -2,6 +2,7 @@ import os
 import unittest
 import time
 from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 
 from fastapi import HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -105,37 +106,49 @@ class AuthTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload["type"], "refresh")
         self.assertIn("exp", payload)
 
-    def test_get_current_user_valid_token(self):
-        token = create_access_token("testuser", "teacher")
-        user = get_current_user(self.db, token)
-        self.assertEqual(user.username, "testuser")
+    async def test_get_current_user_valid_token(self):
+        with patch("auth.is_token_blacklisted", return_value=False):
+            token = create_access_token("testuser", "teacher")
+            user = await get_current_user(self.db, token)
+            self.assertEqual(user.username, "testuser")
 
-    def test_get_current_user_expired_token(self):
-        # Create an expired token manually using a very old date to avoid TZ issues
-        exp = datetime(2000, 1, 1, tzinfo=timezone.utc)
-        token = create_token(
-            {"sub": "testuser", "role": "teacher", "type": "access"},
-            exp,
-            JWT_SECRET
-        )
-        with self.assertRaises(HTTPException) as context:
-            get_current_user(self.db, token)
-        self.assertEqual(context.exception.status_code, status.HTTP_401_UNAUTHORIZED)
-        self.assertEqual(context.exception.detail, "Failed to authenticate user")
+    async def test_get_current_user_expired_token(self):
+        with patch("auth.is_token_blacklisted", return_value=False):
+            # Create an expired token manually using a very old date to avoid TZ issues
+            exp = datetime(2000, 1, 1, tzinfo=timezone.utc)
+            token = create_token(
+                {"sub": "testuser", "role": "teacher", "type": "access"},
+                exp,
+                JWT_SECRET
+            )
+            with self.assertRaises(HTTPException) as context:
+                await get_current_user(self.db, token)
+            self.assertEqual(context.exception.status_code, status.HTTP_401_UNAUTHORIZED)
+            self.assertEqual(context.exception.detail, "Failed to authenticate user")
 
-    def test_get_current_user_wrong_token_type(self):
-        # Using a refresh token as an access token
-        token = create_refresh_token("testuser")
-        with self.assertRaises(HTTPException) as context:
-            get_current_user(self.db, token)
-        self.assertEqual(context.exception.status_code, status.HTTP_401_UNAUTHORIZED)
+    async def test_get_current_user_wrong_token_type(self):
+        with patch("auth.is_token_blacklisted", return_value=False):
+            # Using a refresh token as an access token
+            token = create_refresh_token("testuser")
+            with self.assertRaises(HTTPException) as context:
+                await get_current_user(self.db, token)
+            self.assertEqual(context.exception.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    def test_get_current_user_invalid_signature(self):
-        token = create_access_token("testuser", "teacher")
-        tampered_token = token + "tampered"
-        with self.assertRaises(HTTPException) as context:
-            get_current_user(self.db, tampered_token)
-        self.assertEqual(context.exception.status_code, status.HTTP_401_UNAUTHORIZED)
+    async def test_get_current_user_invalid_signature(self):
+        with patch("auth.is_token_blacklisted", return_value=False):
+            token = create_access_token("testuser", "teacher")
+            tampered_token = token + "tampered"
+            with self.assertRaises(HTTPException) as context:
+                await get_current_user(self.db, tampered_token)
+            self.assertEqual(context.exception.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    async def test_get_current_user_blacklisted_token(self):
+        with patch("auth.is_token_blacklisted", return_value=True):
+            token = create_access_token("testuser", "teacher")
+            with self.assertRaises(HTTPException) as context:
+                await get_current_user(self.db, token)
+            self.assertEqual(context.exception.status_code, status.HTTP_401_UNAUTHORIZED)
+            self.assertEqual(context.exception.detail, "Failed to authenticate user")
 
     # --- Tests for routes/auth/token.py (Direct function calls) ---
 
