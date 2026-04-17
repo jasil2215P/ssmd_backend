@@ -10,6 +10,8 @@ from db import get_db
 from models import TokenData, UserInDb
 from dotenv import load_dotenv
 import os
+import hashlib
+from redis_client import redis_client
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/tokens")
 password_hash = PasswordHash.recommended()
@@ -32,17 +34,30 @@ JWT_REFRESH_TOKEN_EXPIRY_DAYS = 7
 DUMMY_HASH = password_hash.hash("dummy pwd")
 
 
+def hash_token(token: str):
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+async def is_token_blacklisted(token: str) -> bool:
+    token_hash = hash_token(token)
+    return await redis_client.exists(f"blacklist:{token_hash}")
+
+
 async def user_or_ip_identifier(request: Request):
     # Try to get user from token
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
         token = auth_header.split(" ")[1]
         try:
-            # We use JWT_SECRET and ALGORITHM from this module
-            decoded = jwt.decode(token, JWT_SECRET, [ALGORITHM])
-            username = decoded.get("sub")
-            if username:
-                return f"user:{username}"
+            if await is_token_blacklisted(token):
+                # Fallback to IP if blacklisted
+                pass
+            else:
+                # We use JWT_SECRET and ALGORITHM from this module
+                decoded = jwt.decode(token, JWT_SECRET, [ALGORITHM])
+                username = decoded.get("sub")
+                if username:
+                    return f"user:{username}"
         except JWTError:
             pass
 
@@ -53,12 +68,14 @@ async def user_or_ip_identifier(request: Request):
     return f"ip:{request.client.host}"
 
 
-def get_current_user(db=Depends(get_db), token: str = Depends(oauth2_scheme)):
+async def get_current_user(db=Depends(get_db), token: str = Depends(oauth2_scheme)):
     credential_error = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         headers={"WWW-Authenticate": "Bearer"},
         detail="Failed to authenticate user",
     )
+    if await is_token_blacklisted(token):
+        raise credential_error
     try:
         decoded = jwt.decode(token, JWT_SECRET, [ALGORITHM])
         username = decoded.get("sub")
