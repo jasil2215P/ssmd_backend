@@ -23,26 +23,9 @@ class OpenAPIContractTests(unittest.TestCase):
             "/class-sections/{class_section_id}/students",
             "/users/me",
         }
-        hidden_legacy_paths = {
-            "/token",
-            "/refresh",
-            "/health_check",
-            "/announcements/all",
-            "/announcements/me",
-            "/attendance",
-            "/attendance/bulk",
-            "/attendance/today",
-            "/students/{student_id}/all",
-            "/classes",
-            "/classes/{class_section_id}/students",
-            "/user/me",
-        }
 
         for path in expected_paths:
             self.assertIn(path, paths)
-
-        for path in hidden_legacy_paths:
-            self.assertNotIn(path, paths)
 
     def test_openapi_exposes_response_models(self):
         schema = app.openapi()

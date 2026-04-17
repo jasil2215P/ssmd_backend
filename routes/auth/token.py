@@ -173,4 +173,6 @@ def hash_token(token: str):
 
 
 def cleanup_refresh_tokens(db: Session):
-    db.query(RefreshToken).where(RefreshToken.expires_at < datetime.now(timezone.utc)).delete()
+    db.query(RefreshToken).where(
+        RefreshToken.expires_at < datetime.now(timezone.utc)
+    ).delete()
