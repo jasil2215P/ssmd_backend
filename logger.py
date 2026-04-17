@@ -78,7 +78,7 @@ class _JsonFormatter(logging.Formatter):
 def configure_logging() -> None:
     environment = os.getenv("ENVIRONMENT", "development")
     is_production = environment == "production"
-    level = logging.INFO if is_production else logging.DEBUG
+    level = logging.WARNING if is_production else logging.DEBUG
 
     root = logging.getLogger()
     if root.handlers:
@@ -96,7 +96,7 @@ def configure_logging() -> None:
     for noisy in ("uvicorn.access", "sqlalchemy.engine"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
 
-    logging.getLogger("uvicorn.error").setLevel(logging.INFO)
+    logging.getLogger("uvicorn.error").setLevel(logging.WARNING if is_production else logging.INFO)
 
 
 def get_logger(name: str) -> logging.Logger:
