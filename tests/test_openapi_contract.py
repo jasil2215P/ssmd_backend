@@ -47,7 +47,7 @@ class OpenAPIContractTests(unittest.TestCase):
         self.assertTrue(
             bulk_attendance_response["$ref"].endswith("OperationStatusResponse")
         )
-        self.assertEqual(len(user_profile_response["anyOf"]), 3)
+        self.assertEqual(len(user_profile_response["anyOf"]), 4)
 
     def test_openapi_exposes_role_enums_for_request_and_response_models(self):
         schema = app.openapi()
@@ -58,7 +58,7 @@ class OpenAPIContractTests(unittest.TestCase):
         generic_user_role_response_schema = components["GenericUserRoleResponse"]
 
         self.assertEqual(user_role_schema["type"], "string")
-        self.assertEqual(user_role_schema["enum"], ["student", "teacher"])
+        self.assertEqual(user_role_schema["enum"], ["student", "teacher", "admin"])
         self.assertTrue(
             announcement_create_schema["properties"]["roles"]["items"]["$ref"].endswith(
                 "UserRole"

@@ -23,6 +23,7 @@ from db import Base
 class UserRole(StrEnum):
     STUDENT = "student"
     TEACHER = "teacher"
+    ADMIN = "admin"
 
 
 class AttendanceStatus(StrEnum):
@@ -67,6 +68,75 @@ class HealthCheckResponse(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str
+
+
+class StudentCreateInfo(BaseModel):
+    name: str
+    father_name: str
+    mother_name: str
+    admission_date: date
+    reg_no: int
+
+
+class StaffCreateInfo(BaseModel):
+    name: str
+    position: str
+
+
+class AdminCreateInfo(BaseModel):
+    name: str
+
+
+class UserCreate(BaseModel):
+    username: str
+    password: str
+    role: UserRole
+    student_info: StudentCreateInfo | None = None
+    staff_info: StaffCreateInfo | None = None
+    admin_info: AdminCreateInfo | None = None
+
+
+class EnrollmentCreate(BaseModel):
+    student_id: int
+    class_section_id: int
+    roll_no: int
+
+
+class ExamSubjectCreate(BaseModel):
+    subject_id: int
+    max_marks: int
+
+
+class ExamCreate(BaseModel):
+    name: str
+    class_section_id: int
+    subjects: List[ExamSubjectCreate]
+
+
+class SubjectCreate(BaseModel):
+    name: str
+
+
+class ClassSectionCreate(BaseModel):
+    class_name: str
+    section: str
+    academic_year: int
+
+
+class TeachingAssignmentCreate(BaseModel):
+    staff_id: int
+    class_subject_id: int
+
+
+class YearlyStatsResponse(BaseModel):
+    year: int
+    student_count: int
+    staff_count: int
+
+
+class AdminProfileResponse(BaseModel):
+    id: int
+    name: str
 
 
 class OperationStatusResponse(BaseModel):
@@ -152,7 +222,7 @@ class GenericUserRoleResponse(BaseModel):
     role: UserRole
 
 
-_ROLE_CHECK = "role IN ('student', 'teacher')"
+_ROLE_CHECK = "role IN ('student', 'teacher', 'admin')"
 _STATUS_CHECK = "status IN ('present', 'absent')"
 
 
@@ -170,6 +240,7 @@ class Users(Base):
 
     students           = relationship("Students", back_populates="user", uselist=False)
     staff              = relationship("Staff", back_populates="user", uselist=False)
+    admins             = relationship("Admins", back_populates="user", uselist=False)
     announcement_posts = relationship("AnnouncementPosts", back_populates="user")
     refresh_tokens     = relationship("RefreshToken", back_populates="user")
 
@@ -213,6 +284,21 @@ class Students(Base):
     student_enrollments = relationship("StudentEnrollments", back_populates="student")
     attendances         = relationship("Attendance", back_populates="student")
     marks               = relationship("Marks", back_populates="student")
+
+
+class Admins(Base):
+    __tablename__ = "admins"
+
+    id      = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
+                     unique=True, nullable=False)
+    name    = Column(String(128), nullable=False)
+
+    __table_args__ = (
+        Index("ix_admins_user_id", "user_id"),
+    )
+
+    user = relationship("Users", back_populates="admins")
 
 
 class StudentEnrollments(Base):
