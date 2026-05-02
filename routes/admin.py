@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+from starlette.status import HTTP_400_BAD_REQUEST
 
 from auth import require_role, password_hash
 from db import get_db
@@ -8,6 +9,7 @@ from models import (
     Admins,
     ClassSectionCreate,
     ClassSections,
+    ClassSubjectLink,
     EnrollmentCreate,
     ExamCreate,
     ExamSubjects,
@@ -131,8 +133,7 @@ def create_enrollment(data: EnrollmentCreate, db: Session = Depends(get_db)):
 def create_exam(data: ExamCreate, db: Session = Depends(get_db)):
     try:
         exam = Exams(
-            name=data.name,
-            class_section_id=data.class_section_id,
+            name=data.name, class_section_id=data.class_section_id, date=data.date
         )
         db.add(exam)
         db.flush()
@@ -140,7 +141,7 @@ def create_exam(data: ExamCreate, db: Session = Depends(get_db)):
         for sub in data.subjects:
             exam_subject = ExamSubjects(
                 exam_id=exam.id,
-                subject_id=sub.subject_id,
+                class_subject_id=sub.class_subject_id,
                 max_marks=sub.max_marks,
             )
             db.add(exam_subject)
@@ -213,6 +214,25 @@ def create_class_section(data: ClassSectionCreate, db: Session = Depends(get_db)
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    return OperationStatusResponse(status="success")
+
+
+@router.post(
+    "/class-subjects",
+    response_model=OperationStatusResponse,
+    summary="Link a subject to a class",
+)
+def assign_class_subjects(data: ClassSubjectLink, db: Session = Depends(get_db)):
+    c_subject = ClassSubjects(
+        class_section_id=data.class_section_id, subject_id=data.subject_id
+    )
+    db.add(c_subject)
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(e))
+
     return OperationStatusResponse(status="success")
 
 
