@@ -344,7 +344,6 @@ class Subjects(Base):
 
     staff_subjects = relationship("StaffSubjects", back_populates="subject")
     class_subjects = relationship("ClassSubjects", back_populates="subject")
-    exam_subjects = relationship("ExamSubjects", back_populates="subject")
 
 
 class Staff(Base):
@@ -488,6 +487,7 @@ class ClassSubjects(Base):
     teaching_assignments = relationship(
         "TeachingAssignments", back_populates="class_subject"
     )
+    exam_subjects = relationship("ExamSubjects", back_populates="class_subject")
 
 
 class TeachingAssignments(Base):
@@ -544,9 +544,6 @@ class ExamSubjects(Base):
     class_subject_id = Column(
         Integer, ForeignKey("class_subjects.id", ondelete="CASCADE"), nullable=False
     )
-    # subject_id = Column(
-    #     Integer, ForeignKey("subjects.id", ondelete="CASCADE"), nullable=False
-    # )
     max_marks = Column(Integer, nullable=False)
 
     __table_args__ = (
@@ -557,7 +554,7 @@ class ExamSubjects(Base):
     )
 
     exam = relationship("Exams", back_populates="exam_subjects")
-    subject = relationship("ClassSubjects", back_populates="exam_subjects")
+    class_subject = relationship("ClassSubjects", back_populates="exam_subjects")
     marks = relationship(
         "Marks", back_populates="exam_subject", cascade="all, delete-orphan"
     )
