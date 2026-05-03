@@ -3,7 +3,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from starlette.status import HTTP_400_BAD_REQUEST
 
-from auth import require_role, password_hash
+from auth import require_role, password_hash, get_current_user
 from db import get_db
 from models import (
     Admins,
@@ -130,10 +130,15 @@ def create_enrollment(data: EnrollmentCreate, db: Session = Depends(get_db)):
     response_model=OperationStatusResponse,
     summary="Create an exam with multiple subjects",
 )
-def create_exam(data: ExamCreate, db: Session = Depends(get_db)):
+def create_exam(
+    data: ExamCreate, db: Session = Depends(get_db), user=Depends(get_current_user)
+):
     try:
         exam = Exams(
-            name=data.name, class_section_id=data.class_section_id, date=data.date
+            name=data.name,
+            class_section_id=data.class_section_id,
+            date=data.date,
+            created_by=user.id,
         )
         db.add(exam)
         db.flush()

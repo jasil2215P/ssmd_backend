@@ -1,25 +1,27 @@
+import os
+import time
 from contextlib import asynccontextmanager
 from datetime import date
-import time
 
-import os
-from fastapi import Depends, FastAPI, Request, Response
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi_limiter import FastAPILimiter
 from fastapi_limiter.depends import RateLimiter
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
 from auth import get_current_user, require_role, user_or_ip_identifier
-from logger import configure_logging, get_logger
-from redis_client import redis_client
-
 from db import get_db
+from logger import configure_logging, get_logger
 from models import (
     AdminProfileResponse,
     Admins,
     ClassSectionResponse,
     ClassSections,
+    ExamCreate,
+    Exams,
+    ExamSubjects,
     GenericUserRoleResponse,
+    OperationStatusResponse,
     Staff,
     StaffSubjects,
     StudentEnrollments,
@@ -30,7 +32,8 @@ from models import (
     TeacherProfileResponse,
     User,
 )
-from routes import announcements, attendance, health_check, admin
+from redis_client import redis_client
+from routes import admin, announcements, attendance, health_check
 from routes.auth import token
 
 configure_logging()
@@ -176,6 +179,42 @@ def list_students_in_class_section(
         )
         for d in data
     ]
+
+
+@app.post(
+    "/exams",
+    tags=["teachers"],
+    response_model=OperationStatusResponse,
+    dependencies=[Depends(require_role(["teacher", "admin"]))],
+    summary="Create an class tests with multiple subjects for teachers.",
+)
+def create_exam(
+    data: ExamCreate, db: Session = Depends(get_db), user=Depends(get_current_user)
+):
+    try:
+        exam = Exams(
+            name=data.name,
+            class_section_id=data.class_section_id,
+            date=data.date,
+            exam_type="class_tests",
+            created_by=user.id,
+        )
+        db.add(exam)
+        db.flush()
+
+        for sub in data.subjects:
+            exam_subject = ExamSubjects(
+                exam_id=exam.id,
+                class_subject_id=sub.class_subject_id,
+                max_marks=sub.max_marks,
+            )
+            db.add(exam_subject)
+
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    return OperationStatusResponse(status="success")
 
 
 @app.get(

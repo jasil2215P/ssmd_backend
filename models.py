@@ -1,8 +1,8 @@
 from datetime import date
 from enum import StrEnum
-from pydantic import BaseModel
 from typing import List
 
+from pydantic import BaseModel
 from sqlalchemy import (
     CheckConstraint,
     Column,
@@ -17,6 +17,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.orm import relationship
+
 from db import Base
 
 
@@ -522,6 +523,8 @@ class Exams(Base):
         Integer, ForeignKey("class_sections.id", ondelete="CASCADE"), nullable=False
     )
     date = Column(Date, nullable=False)
+    exam_type = Column(String(25), server_default="official")
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
 
     __table_args__ = (
         UniqueConstraint("class_section_id", "name", name="uq_exams_section_name"),

@@ -40,6 +40,7 @@ def list_announcements(
         )
         .join(Users)
         .filter(AnnouncementPosts.issuer == Users.id)
+        .order_by(AnnouncementPosts.date.desc())
         .all()
     )
 
