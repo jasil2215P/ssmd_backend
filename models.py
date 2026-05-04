@@ -32,6 +32,11 @@ class AttendanceStatus(StrEnum):
     ABSENT = "absent"
 
 
+class ExamStatus(StrEnum):
+    PENDING = "pending"
+    COMPLETED = "completed"
+
+
 class User(BaseModel):
     id: int
     username: str
@@ -113,6 +118,12 @@ class ExamCreate(BaseModel):
     class_section_id: int
     subjects: List[ExamSubjectCreate]
     date: date
+
+
+class MarkStudent(BaseModel):
+    student_id: int
+    exam_subject_id: int
+    marks_obtained: int
 
 
 class SubjectCreate(BaseModel):
@@ -225,12 +236,27 @@ class TeacherProfileResponse(BaseModel):
     subjects: List[int]
 
 
+class SubjectMarkResponse(BaseModel):
+    subject: str
+    marks_obtained: int
+    max_marks: int
+
+
+class StudentExamMarksResponse(BaseModel):
+    student_id: int
+    exam: str
+    total_marks: int
+    max_marks: int
+    subjects: list[SubjectMarkResponse]
+
+
 class GenericUserRoleResponse(BaseModel):
     role: UserRole
 
 
 _ROLE_CHECK = "role IN ('student', 'teacher', 'admin')"
 _STATUS_CHECK = "status IN ('present', 'absent')"
+_EXAM_STATUS_CHECK = "status IN ('pending', 'completed')"
 
 
 class Users(Base):
@@ -523,12 +549,14 @@ class Exams(Base):
         Integer, ForeignKey("class_sections.id", ondelete="CASCADE"), nullable=False
     )
     date = Column(Date, nullable=False)
-    exam_type = Column(String(25), server_default="official")
+    exam_type = Column(String(25), server_default="official", nullable=False)
+    status = Column(String, server_default="pending", nullable=False)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
 
     __table_args__ = (
         UniqueConstraint("class_section_id", "name", name="uq_exams_section_name"),
         Index("ix_exams_class_section_id", "class_section_id"),
+        CheckConstraint(_EXAM_STATUS_CHECK, name="ck_exam_status"),
     )
 
     class_section = relationship("ClassSections", back_populates="exams")

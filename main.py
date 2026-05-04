@@ -3,7 +3,7 @@ import time
 from contextlib import asynccontextmanager
 from datetime import date
 
-from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
+from fastapi import Depends, FastAPI, Request, Response
 from fastapi_limiter import FastAPILimiter
 from fastapi_limiter.depends import RateLimiter
 from sqlalchemy import and_
@@ -17,11 +17,7 @@ from models import (
     Admins,
     ClassSectionResponse,
     ClassSections,
-    ExamCreate,
-    Exams,
-    ExamSubjects,
     GenericUserRoleResponse,
-    OperationStatusResponse,
     Staff,
     StaffSubjects,
     StudentEnrollments,
@@ -33,7 +29,7 @@ from models import (
     User,
 )
 from redis_client import redis_client
-from routes import admin, announcements, attendance, health_check
+from routes import admin, announcements, attendance, class_sections, exams, health_check
 from routes.auth import token
 
 configure_logging()
@@ -66,6 +62,8 @@ app.include_router(token.router)
 app.include_router(health_check.router)
 app.include_router(announcements.router)
 app.include_router(admin.router)
+app.include_router(exams.router)
+app.include_router(class_sections.router)
 
 
 @app.middleware("http")
@@ -126,95 +124,6 @@ def get_student_details(student_id: int, db: Session = Depends(get_db)):
         section=data.student_enrollments[0].class_section.section,
         academic_year=data.student_enrollments[0].class_section.academic_year,
     )
-
-
-@app.get(
-    "/class-sections",
-    response_model=list[ClassSectionResponse],
-    dependencies=[Depends(require_role(["teacher", "student"]))],
-    tags=["class-sections"],
-    summary="List class sections for the current academic year",
-)
-def list_class_sections(db: Session = Depends(get_db)):
-    classes = (
-        db.query(ClassSections)
-        .filter(ClassSections.academic_year == date.today().year)
-        .all()
-    )
-
-    return [
-        ClassSectionResponse(
-            id=class_section.id,
-            class_name=class_section.class_name,
-            section=class_section.section,
-            academic_year=class_section.academic_year,
-        )
-        for class_section in classes
-    ]
-
-
-@app.get(
-    "/class-sections/{class_section_id}/students",
-    response_model=list[StudentSummaryResponse],
-    dependencies=[Depends(require_role(["teacher"]))],
-    tags=["class-sections"],
-    summary="List students in a class section",
-)
-def list_students_in_class_section(
-    class_section_id: int, db: Session = Depends(get_db)
-):
-    data = (
-        db.query(StudentEnrollments)
-        .join(Students)
-        .filter(StudentEnrollments.class_section_id == class_section_id)
-        .order_by(StudentEnrollments.roll_no)
-        .all()
-    )
-
-    return [
-        StudentSummaryResponse(
-            id=d.student.id,
-            roll_no=d.roll_no,
-            name=d.student.name,
-        )
-        for d in data
-    ]
-
-
-@app.post(
-    "/exams",
-    tags=["teachers"],
-    response_model=OperationStatusResponse,
-    dependencies=[Depends(require_role(["teacher", "admin"]))],
-    summary="Create an class tests with multiple subjects for teachers.",
-)
-def create_exam(
-    data: ExamCreate, db: Session = Depends(get_db), user=Depends(get_current_user)
-):
-    try:
-        exam = Exams(
-            name=data.name,
-            class_section_id=data.class_section_id,
-            date=data.date,
-            exam_type="class_tests",
-            created_by=user.id,
-        )
-        db.add(exam)
-        db.flush()
-
-        for sub in data.subjects:
-            exam_subject = ExamSubjects(
-                exam_id=exam.id,
-                class_subject_id=sub.class_subject_id,
-                max_marks=sub.max_marks,
-            )
-            db.add(exam_subject)
-
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    return OperationStatusResponse(status="success")
 
 
 @app.get(
