@@ -29,20 +29,23 @@ ALLOWED_ANNOUNCEMENT_ROLES = {UserRole.TEACHER, UserRole.STUDENT}
 def list_announcements(
     current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
-    data = (
-        db.query(AnnouncementPosts)
-        .join(AnnouncementRoles)
-        .filter(
-            and_(
-                AnnouncementRoles.announcement_post_id == AnnouncementPosts.id,
-                AnnouncementRoles.for_role == current_user.role,
+    if current_user.role == "admin":
+        data = db.query(AnnouncementPosts).order_by(AnnouncementPosts.date.desc()).all()
+    else:
+        data = (
+            db.query(AnnouncementPosts)
+            .join(AnnouncementRoles)
+            .filter(
+                and_(
+                    AnnouncementRoles.announcement_post_id == AnnouncementPosts.id,
+                    AnnouncementRoles.for_role == current_user.role,
+                )
             )
+            .join(Users)
+            .filter(AnnouncementPosts.issuer == Users.id)
+            .order_by(AnnouncementPosts.date.desc())
+            .all()
         )
-        .join(Users)
-        .filter(AnnouncementPosts.issuer == Users.id)
-        .order_by(AnnouncementPosts.date.desc())
-        .all()
-    )
 
     return [
         AnnouncementResponse(

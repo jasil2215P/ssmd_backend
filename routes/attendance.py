@@ -23,7 +23,7 @@ router = APIRouter(tags=["attendance"])
 @router.post(
     "/attendance/records/bulk",
     response_model=OperationStatusResponse,
-    dependencies=[Depends(require_role(["teacher"]))],
+    dependencies=[Depends(require_role(["teacher", "admin"]))],
     summary="Create attendance records in bulk",
 )
 def create_bulk_attendance_records(
@@ -53,7 +53,7 @@ def create_bulk_attendance_records(
 @router.put(
     "/attendance/records/bulk",
     response_model=OperationStatusResponse,
-    dependencies=[Depends(require_role(["teacher"]))],
+    dependencies=[Depends(require_role(["teacher", "admin"]))],
     summary="Update attendance records in bulk",
 )
 def update_bulk_attendance_records(
@@ -88,7 +88,7 @@ def update_bulk_attendance_records(
 @router.post(
     "/attendance/records",
     response_model=AttendanceCreateResponse,
-    dependencies=[Depends(require_role(["teacher"]))],
+    dependencies=[Depends(require_role(["teacher", "admin"]))],
     summary="Create a single attendance record",
 )
 def create_attendance_record(data: CreateAttendance, db: Session = Depends(get_db)):
@@ -116,7 +116,7 @@ def create_attendance_record(data: CreateAttendance, db: Session = Depends(get_d
 @router.get(
     "/attendance/records/today",
     response_model=list[AttendanceRecordResponse],
-    dependencies=[Depends(require_role(["teacher"]))],
+    dependencies=[Depends(require_role(["teacher", "admin"]))],
     summary="List today's attendance records for a class section",
 )
 def list_today_attendance_records(class_section_id: int, db: Session = Depends(get_db)):
@@ -144,7 +144,7 @@ def list_today_attendance_records(class_section_id: int, db: Session = Depends(g
 @router.get(
     "/attendance/{student_id}",
     response_model=StudentAttendanceResponse,
-    dependencies=[Depends(require_role(["teacher", "student"]))],
+    dependencies=[Depends(require_role(["teacher", "student", "admin"]))],
     summary="Get a student's attendance status for a specific date or today",
 )
 def get_student_attendance_by_date(

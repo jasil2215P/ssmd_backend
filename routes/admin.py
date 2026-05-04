@@ -1,3 +1,4 @@
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -26,6 +27,16 @@ from models import (
     Users,
     YearlyStatsResponse,
     ClassSubjects,
+    AdminProfileResponse,
+    ClassSectionResponse,
+    EnrollmentResponse,
+    ExamResponse,
+    StaffCreateInfo,
+    StudentProfileResponse,
+    SubjectResponse,
+    TeacherProfileResponse,
+    ClassSubjectResponse,
+    TeachingAssignmentResponse,
 )
 
 router = APIRouter(
@@ -260,3 +271,120 @@ def create_teaching_assignment(
         db.rollback()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     return OperationStatusResponse(status="success")
+
+
+@router.get("/students", response_model=List[StudentProfileResponse])
+def list_students(db: Session = Depends(get_db)):
+    students = (
+        db.query(Students)
+        .join(StudentEnrollments)
+        .join(ClassSections)
+        .filter(ClassSections.id == StudentEnrollments.class_section_id)
+        .all()
+    )
+    return [
+        StudentProfileResponse(
+            id=s.id,
+            name=s.name,
+            reg_no=s.reg_no,
+            father_name=s.father_name,
+            mother_name=s.mother_name,
+            admission_date=s.admission_date,
+            class_name=s.student_enrollments[0].class_section.class_name,
+            section=s.student_enrollments[0].class_section.section,
+            academic_year=s.student_enrollments[0].class_section.academic_year,
+        )
+        for s in students
+    ]
+
+
+@router.get("/teachers", response_model=List[TeacherProfileResponse])
+def list_teachers(db: Session = Depends(get_db)):
+    staff_members = db.query(Staff).all()
+    return [
+        TeacherProfileResponse(
+            id=s.id,
+            name=s.name,
+            position=s.position,
+            subjects=[sub.subject_id for sub in s.staff_subjects],
+        )
+        for s in staff_members
+    ]
+
+
+@router.get("/admins", response_model=List[AdminProfileResponse])
+def list_admins(db: Session = Depends(get_db)):
+    admins = db.query(Admins).all()
+    return [AdminProfileResponse(id=a.id, name=a.name) for a in admins]
+
+
+@router.get("/subjects", response_model=List[SubjectResponse])
+def list_subjects(db: Session = Depends(get_db)):
+    subjects = db.query(Subjects).all()
+    return [SubjectResponse(id=s.id, name=s.name) for s in subjects]
+
+
+@router.get("/class-sections", response_model=List[ClassSectionResponse])
+def list_class_sections(db: Session = Depends(get_db)):
+    class_sections = db.query(ClassSections).all()
+    return [
+        ClassSectionResponse(
+            id=cs.id,
+            class_name=cs.class_name,
+            section=cs.section,
+            academic_year=cs.academic_year,
+        )
+        for cs in class_sections
+    ]
+
+
+@router.get("/exams", response_model=List[ExamResponse])
+def list_exams(db: Session = Depends(get_db)):
+    exams = db.query(Exams).all()
+    return [
+        ExamResponse(
+            id=e.id,
+            name=e.name,
+            class_section_id=e.class_section_id,
+            date=e.date,
+            exam_type=e.exam_type,
+            status=e.status,
+        )
+        for e in exams
+    ]
+
+
+@router.get("/class-subjects", response_model=List[ClassSubjectResponse])
+def list_class_subjects(db: Session = Depends(get_db)):
+    class_subjects = db.query(ClassSubjects).all()
+    return [
+        ClassSubjectResponse(
+            id=cs.id, class_section_id=cs.class_section_id, subject_id=cs.subject_id
+        )
+        for cs in class_subjects
+    ]
+
+
+@router.get("/teaching-assignments", response_model=List[TeachingAssignmentResponse])
+def list_teaching_assignments(db: Session = Depends(get_db)):
+    assignments = db.query(TeachingAssignments).all()
+    return [
+        TeachingAssignmentResponse(
+            id=ta.id, staff_id=ta.staff_id, class_subject_id=ta.class_subject_id
+        )
+        for ta in assignments
+    ]
+
+
+@router.get("/enrollments", response_model=List[EnrollmentResponse])
+def list_enrollments(db: Session = Depends(get_db)):
+    enrollments = db.query(StudentEnrollments).all()
+    return [
+        EnrollmentResponse(
+            id=e.id,
+            student_id=e.student_id,
+            class_section_id=e.class_section_id,
+            roll_no=e.roll_no,
+        )
+        for e in enrollments
+    ]

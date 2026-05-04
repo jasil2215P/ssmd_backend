@@ -1,6 +1,6 @@
-from datetime import date
+from datetime import date, datetime
 from enum import StrEnum
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel
 from sqlalchemy import (
@@ -16,7 +16,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from db import Base
 
@@ -250,6 +250,39 @@ class StudentExamMarksResponse(BaseModel):
     subjects: list[SubjectMarkResponse]
 
 
+class SubjectResponse(BaseModel):
+    id: int
+    name: str
+
+
+class ExamResponse(BaseModel):
+    id: int
+    name: str
+    class_section_id: int
+    date: date
+    exam_type: str
+    status: str
+
+
+class ClassSubjectResponse(BaseModel):
+    id: int
+    class_section_id: int
+    subject_id: int
+
+
+class TeachingAssignmentResponse(BaseModel):
+    id: int
+    staff_id: int
+    class_subject_id: int
+
+
+class EnrollmentResponse(BaseModel):
+    id: int
+    student_id: int
+    class_section_id: int
+    roll_no: int
+
+
 class GenericUserRoleResponse(BaseModel):
     role: UserRole
 
@@ -262,27 +295,37 @@ _EXAM_STATUS_CHECK = "status IN ('pending', 'completed')"
 class Users(Base):
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True)
-    username = Column(String(64), unique=True, nullable=False)
-    password_hash = Column(String(255), nullable=False)
-    role = Column(String(16), nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    username: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[str] = mapped_column(String(16), nullable=False)
 
     __table_args__ = (CheckConstraint(_ROLE_CHECK, name="ck_users_role"),)
 
-    students = relationship("Students", back_populates="user", uselist=False)
-    staff = relationship("Staff", back_populates="user", uselist=False)
-    admins = relationship("Admins", back_populates="user", uselist=False)
-    announcement_posts = relationship("AnnouncementPosts", back_populates="user")
-    refresh_tokens = relationship("RefreshToken", back_populates="user")
+    students: Mapped[Optional["Students"]] = relationship(
+        "Students", back_populates="user", uselist=False
+    )
+    staff: Mapped[Optional["Staff"]] = relationship(
+        "Staff", back_populates="user", uselist=False
+    )
+    admins: Mapped[Optional["Admins"]] = relationship(
+        "Admins", back_populates="user", uselist=False
+    )
+    announcement_posts: Mapped[List["AnnouncementPosts"]] = relationship(
+        "AnnouncementPosts", back_populates="user"
+    )
+    refresh_tokens: Mapped[List["RefreshToken"]] = relationship(
+        "RefreshToken", back_populates="user"
+    )
 
 
 class ClassSections(Base):
     __tablename__ = "class_sections"
 
-    id = Column(Integer, primary_key=True)
-    class_name = Column(String(64), nullable=False)
-    section = Column(String(8), nullable=False)
-    academic_year = Column(Integer, nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    class_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    section: Mapped[str] = mapped_column(String(8), nullable=False)
+    academic_year: Mapped[int] = mapped_column(Integer, nullable=False)
 
     __table_args__ = (
         UniqueConstraint(
@@ -293,60 +336,68 @@ class ClassSections(Base):
         ),
     )
 
-    student_enrollments = relationship(
+    student_enrollments: Mapped[List["StudentEnrollments"]] = relationship(
         "StudentEnrollments", back_populates="class_section"
     )
-    attendances = relationship("Attendance", back_populates="class_section")
-    class_subjects = relationship("ClassSubjects", back_populates="class_section")
-    exams = relationship("Exams", back_populates="class_section")
+    attendances: Mapped[List["Attendance"]] = relationship(
+        "Attendance", back_populates="class_section"
+    )
+    class_subjects: Mapped[List["ClassSubjects"]] = relationship(
+        "ClassSubjects", back_populates="class_section"
+    )
+    exams: Mapped[List["Exams"]] = relationship("Exams", back_populates="class_section")
 
 
 class Students(Base):
     __tablename__ = "students"
 
-    id = Column(Integer, primary_key=True)
-    user_id = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False
     )
-    name = Column(String(128), nullable=False)
-    father_name = Column(String(128), nullable=False)
-    mother_name = Column(String(128), nullable=False)
-    admission_date = Column(Date, nullable=False)
-    reg_no = Column(Integer, unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    father_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    mother_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    admission_date: Mapped[date] = mapped_column(Date, nullable=False)
+    reg_no: Mapped[int] = mapped_column(Integer, unique=True, nullable=False)
 
     __table_args__ = (Index("ix_students_user_id", "user_id"),)
 
-    user = relationship("Users", back_populates="students")
-    student_enrollments = relationship("StudentEnrollments", back_populates="student")
-    attendances = relationship("Attendance", back_populates="student")
-    marks = relationship("Marks", back_populates="student")
+    user: Mapped["Users"] = relationship("Users", back_populates="students")
+    student_enrollments: Mapped[List["StudentEnrollments"]] = relationship(
+        "StudentEnrollments", back_populates="student"
+    )
+    attendances: Mapped[List["Attendance"]] = relationship(
+        "Attendance", back_populates="student"
+    )
+    marks: Mapped[List["Marks"]] = relationship("Marks", back_populates="student")
 
 
 class Admins(Base):
     __tablename__ = "admins"
 
-    id = Column(Integer, primary_key=True)
-    user_id = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False
     )
-    name = Column(String(128), nullable=False)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
 
     __table_args__ = (Index("ix_admins_user_id", "user_id"),)
 
-    user = relationship("Users", back_populates="admins")
+    user: Mapped["Users"] = relationship("Users", back_populates="admins")
 
 
 class StudentEnrollments(Base):
     __tablename__ = "student_enrollments"
 
-    id = Column(Integer, primary_key=True)
-    student_id = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    student_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False
     )
-    class_section_id = Column(
+    class_section_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("class_sections.id", ondelete="CASCADE"), nullable=False
     )
-    roll_no = Column(Integer, nullable=False)
+    roll_no: Mapped[int] = mapped_column(Integer, nullable=False)
 
     __table_args__ = (
         UniqueConstraint(
@@ -359,35 +410,47 @@ class StudentEnrollments(Base):
         Index("ix_student_enrollments_class_section_id", "class_section_id"),
     )
 
-    student = relationship("Students", back_populates="student_enrollments")
-    class_section = relationship("ClassSections", back_populates="student_enrollments")
+    student: Mapped["Students"] = relationship(
+        "Students", back_populates="student_enrollments"
+    )
+    class_section: Mapped["ClassSections"] = relationship(
+        "ClassSections", back_populates="student_enrollments"
+    )
 
 
 class Subjects(Base):
     __tablename__ = "subjects"
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String(128), unique=True, nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
 
-    staff_subjects = relationship("StaffSubjects", back_populates="subject")
-    class_subjects = relationship("ClassSubjects", back_populates="subject")
+    staff_subjects: Mapped[List["StaffSubjects"]] = relationship(
+        "StaffSubjects", back_populates="subject"
+    )
+    class_subjects: Mapped[List["ClassSubjects"]] = relationship(
+        "ClassSubjects", back_populates="subject"
+    )
 
 
 class Staff(Base):
     __tablename__ = "staff"
 
-    id = Column(Integer, primary_key=True)
-    user_id = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False
     )
-    name = Column(String(128), nullable=False)
-    position = Column(String(128), nullable=False)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    position: Mapped[str] = mapped_column(String(128), nullable=False)
 
     __table_args__ = (Index("ix_staff_user_id", "user_id"),)
 
-    user = relationship("Users", back_populates="staff")
-    staff_subjects = relationship("StaffSubjects", back_populates="staff")
-    teaching_assignments = relationship("TeachingAssignments", back_populates="staff")
+    user: Mapped["Users"] = relationship("Users", back_populates="staff")
+    staff_subjects: Mapped[List["StaffSubjects"]] = relationship(
+        "StaffSubjects", back_populates="staff"
+    )
+    teaching_assignments: Mapped[List["TeachingAssignments"]] = relationship(
+        "TeachingAssignments", back_populates="staff"
+    )
 
 
 class StaffSubjects(Base):
@@ -395,11 +458,11 @@ class StaffSubjects(Base):
 
     __tablename__ = "staff_subjects"
 
-    id = Column(Integer, primary_key=True)
-    staff_id = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    staff_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("staff.id", ondelete="CASCADE"), nullable=False
     )
-    subject_id = Column(
+    subject_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("subjects.id", ondelete="CASCADE"), nullable=False
     )
 
@@ -409,22 +472,24 @@ class StaffSubjects(Base):
         Index("ix_staff_subjects_subject_id", "subject_id"),
     )
 
-    staff = relationship("Staff", back_populates="staff_subjects")
-    subject = relationship("Subjects", back_populates="staff_subjects")
+    staff: Mapped["Staff"] = relationship("Staff", back_populates="staff_subjects")
+    subject: Mapped["Subjects"] = relationship("Subjects", back_populates="staff_subjects")
 
 
 class Attendance(Base):
     __tablename__ = "attendance"
 
-    id = Column(Integer, primary_key=True)
-    student_id = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    student_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False
     )
-    class_section_id = Column(
+    class_section_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("class_sections.id", ondelete="CASCADE"), nullable=False
     )
-    date = Column(Date, nullable=False, server_default=func.current_date())
-    status = Column(String(10), nullable=False)
+    date: Mapped[date] = mapped_column(
+        Date, nullable=False, server_default=func.current_date()
+    )
+    status: Mapped[str] = mapped_column(String(10), nullable=False)
 
     __table_args__ = (
         # Prevents duplicate attendance entries
@@ -441,41 +506,49 @@ class Attendance(Base):
         Index("ix_attendance_section_date", "class_section_id", "date"),
     )
 
-    student = relationship("Students", back_populates="attendances")
-    class_section = relationship("ClassSections", back_populates="attendances")
+    student: Mapped["Students"] = relationship("Students", back_populates="attendances")
+    class_section: Mapped["ClassSections"] = relationship(
+        "ClassSections", back_populates="attendances"
+    )
 
 
 class AnnouncementPosts(Base):
     __tablename__ = "announcement_posts"
 
-    id = Column(Integer, primary_key=True)
-    subject = Column(String(255), nullable=False)
-    details = Column(String, nullable=False)
-    issuer = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    subject: Mapped[str] = mapped_column(String(255), nullable=False)
+    details: Mapped[str] = mapped_column(String, nullable=False)
+    issuer: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
     # server_default ensures Alembic generates proper DDL
-    date = Column(Date, nullable=False, server_default=func.current_date())
+    date: Mapped[date] = mapped_column(
+        Date, nullable=False, server_default=func.current_date()
+    )
 
     __table_args__ = (
         Index("ix_announcement_posts_issuer", "issuer"),
         Index("ix_announcement_posts_date", "date"),
     )
 
-    announcement_roles = relationship(
+    announcement_roles: Mapped[List["AnnouncementRoles"]] = relationship(
         "AnnouncementRoles",
         back_populates="announcement_post",
         cascade="all, delete-orphan",
     )
-    user = relationship("Users", back_populates="announcement_posts")
+    user: Mapped[Optional["Users"]] = relationship(
+        "Users", back_populates="announcement_posts"
+    )
 
 
 class AnnouncementRoles(Base):
     __tablename__ = "announcement_roles"
 
-    id = Column(Integer, primary_key=True)
-    announcement_post_id = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    announcement_post_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("announcement_posts.id", ondelete="CASCADE"), nullable=False
     )
-    for_role = Column(String(16), nullable=False)
+    for_role: Mapped[str] = mapped_column(String(16), nullable=False)
 
     __table_args__ = (
         UniqueConstraint(
@@ -487,7 +560,7 @@ class AnnouncementRoles(Base):
         Index("ix_announcement_roles_post_id", "announcement_post_id"),
     )
 
-    announcement_post = relationship(
+    announcement_post: Mapped["AnnouncementPosts"] = relationship(
         "AnnouncementPosts", back_populates="announcement_roles"
     )
 
@@ -495,11 +568,11 @@ class AnnouncementRoles(Base):
 class ClassSubjects(Base):
     __tablename__ = "class_subjects"
 
-    id = Column(Integer, primary_key=True)
-    class_section_id = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    class_section_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("class_sections.id", ondelete="CASCADE"), nullable=False
     )
-    subject_id = Column(
+    subject_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("subjects.id", ondelete="CASCADE"), nullable=False
     )
 
@@ -509,22 +582,26 @@ class ClassSubjects(Base):
         Index("ix_class_subjects_subject_id", "subject_id"),
     )
 
-    class_section = relationship("ClassSections", back_populates="class_subjects")
-    subject = relationship("Subjects", back_populates="class_subjects")
-    teaching_assignments = relationship(
+    class_section: Mapped["ClassSections"] = relationship(
+        "ClassSections", back_populates="class_subjects"
+    )
+    subject: Mapped["Subjects"] = relationship("Subjects", back_populates="class_subjects")
+    teaching_assignments: Mapped[List["TeachingAssignments"]] = relationship(
         "TeachingAssignments", back_populates="class_subject"
     )
-    exam_subjects = relationship("ExamSubjects", back_populates="class_subject")
+    exam_subjects: Mapped[List["ExamSubjects"]] = relationship(
+        "ExamSubjects", back_populates="class_subject"
+    )
 
 
 class TeachingAssignments(Base):
     __tablename__ = "teaching_assignments"
 
-    id = Column(Integer, primary_key=True)
-    staff_id = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    staff_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("staff.id", ondelete="CASCADE"), nullable=False
     )
-    class_subject_id = Column(
+    class_subject_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("class_subjects.id", ondelete="CASCADE"), nullable=False
     )
 
@@ -536,22 +613,28 @@ class TeachingAssignments(Base):
         Index("ix_teaching_assignments_class_subject_id", "class_subject_id"),
     )
 
-    staff = relationship("Staff", back_populates="teaching_assignments")
-    class_subject = relationship("ClassSubjects", back_populates="teaching_assignments")
+    staff: Mapped["Staff"] = relationship("Staff", back_populates="teaching_assignments")
+    class_subject: Mapped["ClassSubjects"] = relationship(
+        "ClassSubjects", back_populates="teaching_assignments"
+    )
 
 
 class Exams(Base):
     __tablename__ = "exams"
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String(128), nullable=False)
-    class_section_id = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    class_section_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("class_sections.id", ondelete="CASCADE"), nullable=False
     )
-    date = Column(Date, nullable=False)
-    exam_type = Column(String(25), server_default="official", nullable=False)
-    status = Column(String, server_default="pending", nullable=False)
-    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    date: Mapped[date] = mapped_column(Date, nullable=False)
+    exam_type: Mapped[str] = mapped_column(
+        String(25), server_default="official", nullable=False
+    )
+    status: Mapped[str] = mapped_column(String, server_default="pending", nullable=False)
+    created_by: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=True
+    )
 
     __table_args__ = (
         UniqueConstraint("class_section_id", "name", name="uq_exams_section_name"),
@@ -559,8 +642,10 @@ class Exams(Base):
         CheckConstraint(_EXAM_STATUS_CHECK, name="ck_exam_status"),
     )
 
-    class_section = relationship("ClassSections", back_populates="exams")
-    exam_subjects = relationship(
+    class_section: Mapped["ClassSections"] = relationship(
+        "ClassSections", back_populates="exams"
+    )
+    exam_subjects: Mapped[List["ExamSubjects"]] = relationship(
         "ExamSubjects", back_populates="exam", cascade="all, delete-orphan"
     )
 
@@ -568,14 +653,14 @@ class Exams(Base):
 class ExamSubjects(Base):
     __tablename__ = "exam_subjects"
 
-    id = Column(Integer, primary_key=True)
-    exam_id = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    exam_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("exams.id", ondelete="CASCADE"), nullable=False
     )
-    class_subject_id = Column(
+    class_subject_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("class_subjects.id", ondelete="CASCADE"), nullable=False
     )
-    max_marks = Column(Integer, nullable=False)
+    max_marks: Mapped[int] = mapped_column(Integer, nullable=False)
 
     __table_args__ = (
         UniqueConstraint("exam_id", "class_subject_id", name="uq_exam_subjects"),
@@ -584,9 +669,11 @@ class ExamSubjects(Base):
         Index("ix_exam_subjects_subject_id", "class_subject_id"),
     )
 
-    exam = relationship("Exams", back_populates="exam_subjects")
-    class_subject = relationship("ClassSubjects", back_populates="exam_subjects")
-    marks = relationship(
+    exam: Mapped["Exams"] = relationship("Exams", back_populates="exam_subjects")
+    class_subject: Mapped["ClassSubjects"] = relationship(
+        "ClassSubjects", back_populates="exam_subjects"
+    )
+    marks: Mapped[List["Marks"]] = relationship(
         "Marks", back_populates="exam_subject", cascade="all, delete-orphan"
     )
 
@@ -594,14 +681,14 @@ class ExamSubjects(Base):
 class Marks(Base):
     __tablename__ = "marks"
 
-    id = Column(Integer, primary_key=True)
-    student_id = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    student_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False
     )
-    exam_subject_id = Column(
+    exam_subject_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("exam_subjects.id", ondelete="CASCADE"), nullable=False
     )
-    marks_obtained = Column(Integer, nullable=False)
+    marks_obtained: Mapped[int] = mapped_column(Integer, nullable=False)
 
     __table_args__ = (
         UniqueConstraint(
@@ -612,21 +699,23 @@ class Marks(Base):
         Index("ix_marks_exam_subject_id", "exam_subject_id"),
     )
 
-    student = relationship("Students", back_populates="marks")
-    exam_subject = relationship("ExamSubjects", back_populates="marks")
+    student: Mapped["Students"] = relationship("Students", back_populates="marks")
+    exam_subject: Mapped["ExamSubjects"] = relationship(
+        "ExamSubjects", back_populates="marks"
+    )
 
 
 class RefreshToken(Base):
     __tablename__ = "refresh_tokens"
 
-    id = Column(Integer, primary_key=True)
-    token_hash = Column(String(255), unique=True, nullable=False)
-    user_id = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    token_hash: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    user_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
-    expires_at = Column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     # server_default instead of Python-side default — Alembic generates correct DDL
-    created_at = Column(
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         server_default=text("CURRENT_TIMESTAMP"),
@@ -637,4 +726,4 @@ class RefreshToken(Base):
         Index("ix_refresh_tokens_expires_at", "expires_at"),
     )
 
-    user = relationship("Users", back_populates="refresh_tokens")
+    user: Mapped["Users"] = relationship("Users", back_populates="refresh_tokens")

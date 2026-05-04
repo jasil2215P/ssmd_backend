@@ -20,7 +20,7 @@ router = APIRouter(prefix="/class-sections")
 @router.get(
     "",
     response_model=list[ClassSectionResponse],
-    dependencies=[Depends(require_role(["teacher", "student"]))],
+    dependencies=[Depends(require_role(["teacher", "student", "admin"]))],
     tags=["class-sections"],
     summary="List class sections for the current academic year",
 )
@@ -45,7 +45,7 @@ def list_class_sections(db: Session = Depends(get_db)):
 @router.get(
     "/{class_section_id}/students",
     response_model=list[StudentSummaryResponse],
-    dependencies=[Depends(require_role(["teacher"]))],
+    dependencies=[Depends(require_role(["teacher", "admin"]))],
     tags=["class-sections"],
     summary="List students in a class section",
 )
