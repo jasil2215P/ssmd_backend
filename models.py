@@ -193,22 +193,20 @@ class AnnouncementCreateResponse(BaseModel):
     id: int
 
 
-class StudentInfoResponse(BaseModel):
-    roll_no: int
-    name: str
-    father_name: str
-    mother_name: str
-    admission_date: date
-    class_name: str
-    section: str
-    academic_year: int
-
-
 class ClassSectionResponse(BaseModel):
     id: int
     class_name: str
     section: str
     academic_year: int
+
+
+class StudentsResponse(BaseModel):
+    id: int
+    name: str
+    reg_no: int
+    father_name: str
+    mother_name: str
+    admission_date: date
 
 
 class StudentSummaryResponse(BaseModel):
@@ -219,14 +217,15 @@ class StudentSummaryResponse(BaseModel):
 
 class StudentProfileResponse(BaseModel):
     id: int
+    roll_no: int | None
     name: str
     reg_no: int
     father_name: str
     mother_name: str
     admission_date: date
-    class_name: str
-    section: str
-    academic_year: int
+    class_name: str | None
+    section: str | None
+    academic_year: int | None
 
 
 class TeacherProfileResponse(BaseModel):
@@ -473,7 +472,9 @@ class StaffSubjects(Base):
     )
 
     staff: Mapped["Staff"] = relationship("Staff", back_populates="staff_subjects")
-    subject: Mapped["Subjects"] = relationship("Subjects", back_populates="staff_subjects")
+    subject: Mapped["Subjects"] = relationship(
+        "Subjects", back_populates="staff_subjects"
+    )
 
 
 class Attendance(Base):
@@ -585,7 +586,9 @@ class ClassSubjects(Base):
     class_section: Mapped["ClassSections"] = relationship(
         "ClassSections", back_populates="class_subjects"
     )
-    subject: Mapped["Subjects"] = relationship("Subjects", back_populates="class_subjects")
+    subject: Mapped["Subjects"] = relationship(
+        "Subjects", back_populates="class_subjects"
+    )
     teaching_assignments: Mapped[List["TeachingAssignments"]] = relationship(
         "TeachingAssignments", back_populates="class_subject"
     )
@@ -613,7 +616,9 @@ class TeachingAssignments(Base):
         Index("ix_teaching_assignments_class_subject_id", "class_subject_id"),
     )
 
-    staff: Mapped["Staff"] = relationship("Staff", back_populates="teaching_assignments")
+    staff: Mapped["Staff"] = relationship(
+        "Staff", back_populates="teaching_assignments"
+    )
     class_subject: Mapped["ClassSubjects"] = relationship(
         "ClassSubjects", back_populates="teaching_assignments"
     )
@@ -631,7 +636,9 @@ class Exams(Base):
     exam_type: Mapped[str] = mapped_column(
         String(25), server_default="official", nullable=False
     )
-    status: Mapped[str] = mapped_column(String, server_default="pending", nullable=False)
+    status: Mapped[str] = mapped_column(
+        String, server_default="pending", nullable=False
+    )
     created_by: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("users.id"), nullable=True
     )
@@ -713,7 +720,9 @@ class RefreshToken(Base):
     user_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
     # server_default instead of Python-side default — Alembic generates correct DDL
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

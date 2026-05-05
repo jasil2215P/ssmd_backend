@@ -19,6 +19,7 @@ from models import (
     Staff,
     StudentEnrollments,
     Students,
+    StudentsResponse,
     SubjectCreate,
     Subjects,
     TeachingAssignmentCreate,
@@ -31,7 +32,6 @@ from models import (
     ClassSectionResponse,
     EnrollmentResponse,
     ExamResponse,
-    StaffCreateInfo,
     StudentProfileResponse,
     SubjectResponse,
     TeacherProfileResponse,
@@ -274,14 +274,23 @@ def create_teaching_assignment(
 
 
 @router.get("/students", response_model=List[StudentProfileResponse])
-def list_students(db: Session = Depends(get_db)):
-    students = (
-        db.query(Students)
-        .join(StudentEnrollments)
-        .join(ClassSections)
-        .filter(ClassSections.id == StudentEnrollments.class_section_id)
-        .all()
-    )
+def list_students(is_enrolled: bool = True, db: Session = Depends(get_db)):
+    data = db.query(Students)
+    if is_enrolled:
+        students = (
+            data.join(StudentEnrollments)
+            .join(ClassSections)
+            .filter(ClassSections.id == StudentEnrollments.class_section_id)
+            .order_by(Students.admission_date.desc())
+            .all()
+        )
+    else:
+        students = (
+            data.filter(~Students.student_enrollments.any())
+            .order_by(Students.admission_date.desc())
+            .all()
+        )
+
     return [
         StudentProfileResponse(
             id=s.id,
@@ -290,12 +299,20 @@ def list_students(db: Session = Depends(get_db)):
             father_name=s.father_name,
             mother_name=s.mother_name,
             admission_date=s.admission_date,
-            class_name=s.student_enrollments[0].class_section.class_name,
-            section=s.student_enrollments[0].class_section.section,
-            academic_year=s.student_enrollments[0].class_section.academic_year,
+            **get_enrollment_data(s),
         )
         for s in students
     ]
+
+
+def get_enrollment_data(s):
+    e = s.student_enrollments[0] if s.student_enrollments else None
+    return {
+        "roll_no": e.roll_no if e else None,
+        "class_name": e.class_section.class_name if e else None,
+        "section": e.class_section.section if e else None,
+        "academic_year": e.class_section.academic_year if e else None,
+    }
 
 
 @router.get("/teachers", response_model=List[TeacherProfileResponse])

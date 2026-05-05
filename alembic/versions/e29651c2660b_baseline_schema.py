@@ -1,8 +1,8 @@
-"""initial full schema
+"""baseline schema
 
-Revision ID: f710761bfa5c
-Revises: abf84c6fca89
-Create Date: 2026-04-21 13:32:33.502461
+Revision ID: e29651c2660b
+Revises: 
+Create Date: 2026-05-04 23:45:10.764972
 
 """
 from typing import Sequence, Union
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'f710761bfa5c'
-down_revision: Union[str, Sequence[str], None] = 'abf84c6fca89'
+revision: str = 'e29651c2660b'
+down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -40,10 +40,19 @@ def upgrade() -> None:
     sa.Column('username', sa.String(length=64), nullable=False),
     sa.Column('password_hash', sa.String(length=255), nullable=False),
     sa.Column('role', sa.String(length=16), nullable=False),
-    sa.CheckConstraint("role IN ('student', 'teacher')", name='ck_users_role'),
+    sa.CheckConstraint("role IN ('student', 'teacher', 'admin')", name='ck_users_role'),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('username')
     )
+    op.create_table('admins',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('user_id', sa.Integer(), nullable=False),
+    sa.Column('name', sa.String(length=128), nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('user_id')
+    )
+    op.create_index('ix_admins_user_id', 'admins', ['user_id'], unique=False)
     op.create_table('announcement_posts',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('subject', sa.String(length=255), nullable=False),
@@ -70,7 +79,13 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(length=128), nullable=False),
     sa.Column('class_section_id', sa.Integer(), nullable=False),
+    sa.Column('date', sa.Date(), nullable=False),
+    sa.Column('exam_type', sa.String(length=25), server_default='official', nullable=False),
+    sa.Column('status', sa.String(), server_default='pending', nullable=False),
+    sa.Column('created_by', sa.Integer(), nullable=True),
+    sa.CheckConstraint("status IN ('pending', 'completed')", name='ck_exam_status'),
     sa.ForeignKeyConstraint(['class_section_id'], ['class_sections.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['created_by'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('class_section_id', 'name', name='uq_exams_section_name')
     )
@@ -115,7 +130,7 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('announcement_post_id', sa.Integer(), nullable=False),
     sa.Column('for_role', sa.String(length=16), nullable=False),
-    sa.CheckConstraint("for_role IN ('student', 'teacher')", name='ck_announcement_roles_role'),
+    sa.CheckConstraint("for_role IN ('student', 'teacher', 'admin')", name='ck_announcement_roles_role'),
     sa.ForeignKeyConstraint(['announcement_post_id'], ['announcement_posts.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('announcement_post_id', 'for_role', name='uq_announcement_roles')
@@ -139,16 +154,16 @@ def upgrade() -> None:
     op.create_table('exam_subjects',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('exam_id', sa.Integer(), nullable=False),
-    sa.Column('subject_id', sa.Integer(), nullable=False),
+    sa.Column('class_subject_id', sa.Integer(), nullable=False),
     sa.Column('max_marks', sa.Integer(), nullable=False),
     sa.CheckConstraint('max_marks > 0', name='ck_exam_subjects_max_marks'),
+    sa.ForeignKeyConstraint(['class_subject_id'], ['class_subjects.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['exam_id'], ['exams.id'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['subject_id'], ['subjects.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('exam_id', 'subject_id', name='uq_exam_subjects')
+    sa.UniqueConstraint('exam_id', 'class_subject_id', name='uq_exam_subjects')
     )
     op.create_index('ix_exam_subjects_exam_id', 'exam_subjects', ['exam_id'], unique=False)
-    op.create_index('ix_exam_subjects_subject_id', 'exam_subjects', ['subject_id'], unique=False)
+    op.create_index('ix_exam_subjects_subject_id', 'exam_subjects', ['class_subject_id'], unique=False)
     op.create_table('staff_subjects',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('staff_id', sa.Integer(), nullable=False),
@@ -239,6 +254,8 @@ def downgrade() -> None:
     op.drop_index('ix_announcement_posts_issuer', table_name='announcement_posts')
     op.drop_index('ix_announcement_posts_date', table_name='announcement_posts')
     op.drop_table('announcement_posts')
+    op.drop_index('ix_admins_user_id', table_name='admins')
+    op.drop_table('admins')
     op.drop_table('users')
     op.drop_table('subjects')
     op.drop_table('class_sections')

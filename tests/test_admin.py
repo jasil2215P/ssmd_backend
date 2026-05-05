@@ -26,7 +26,6 @@ from models import (
     ClassSubjectLink,
     TeachingAssignmentCreate,
     UserRole,
-    User,
 )
 from routes.admin import (
     create_user,
@@ -96,11 +95,11 @@ class AdminRouteTests(unittest.IsolatedAsyncioTestCase):
         )
         result = create_user(data, self.db)
         self.assertEqual(result.status, "success")
-        
+
         user = self.db.query(Users).filter(Users.username == "student1").first()
         self.assertIsNotNone(user)
         self.assertEqual(user.role, UserRole.STUDENT)
-        
+
         student = self.db.query(Students).filter(Students.user_id == user.id).first()
         self.assertIsNotNone(student)
         self.assertEqual(student.name, "Student One")
@@ -114,7 +113,7 @@ class AdminRouteTests(unittest.IsolatedAsyncioTestCase):
         )
         result = create_user(data, self.db)
         self.assertEqual(result.status, "success")
-        
+
         user = self.db.query(Users).filter(Users.username == "teacher1").first()
         staff = self.db.query(Staff).filter(Staff.user_id == user.id).first()
         self.assertIsNotNone(staff)
@@ -129,7 +128,7 @@ class AdminRouteTests(unittest.IsolatedAsyncioTestCase):
         )
         result = create_user(data, self.db)
         self.assertEqual(result.status, "success")
-        
+
         user = self.db.query(Users).filter(Users.username == "admin2").first()
         admin = self.db.query(Admins).filter(Admins.user_id == user.id).first()
         self.assertIsNotNone(admin)
@@ -140,7 +139,7 @@ class AdminRouteTests(unittest.IsolatedAsyncioTestCase):
         user1 = Users(username="dup", password_hash="x", role="admin")
         self.db.add(user1)
         self.db.commit()
-        
+
         data = UserCreate(
             username="dup",
             password="password123",
@@ -156,16 +155,29 @@ class AdminRouteTests(unittest.IsolatedAsyncioTestCase):
         user = Users(username="s1", password_hash="x", role="student")
         self.db.add(user)
         self.db.commit()
-        student = Students(user_id=user.id, name="S", father_name="F", mother_name="M", admission_date=date.today(), reg_no=1)
+        student = Students(
+            user_id=user.id,
+            name="S",
+            father_name="F",
+            mother_name="M",
+            admission_date=date.today(),
+            reg_no=1,
+        )
         cs = ClassSections(class_name="10", section="A", academic_year=2024)
         self.db.add_all([student, cs])
         self.db.commit()
-        
-        data = EnrollmentCreate(student_id=student.id, class_section_id=cs.id, roll_no=5)
+
+        data = EnrollmentCreate(
+            student_id=student.id, class_section_id=cs.id, roll_no=5
+        )
         result = create_enrollment(data, self.db)
         self.assertEqual(result.status, "success")
-        
-        enrollment = self.db.query(StudentEnrollments).filter(StudentEnrollments.student_id == student.id).first()
+
+        enrollment = (
+            self.db.query(StudentEnrollments)
+            .filter(StudentEnrollments.student_id == student.id)
+            .first()
+        )
         self.assertIsNotNone(enrollment)
         self.assertEqual(enrollment.roll_no, 5)
 
@@ -173,7 +185,7 @@ class AdminRouteTests(unittest.IsolatedAsyncioTestCase):
         data = SubjectCreate(name="Science")
         result = create_subject(data, self.db)
         self.assertEqual(result.status, "success")
-        
+
         subject = self.db.query(Subjects).filter(Subjects.name == "Science").first()
         self.assertIsNotNone(subject)
 
@@ -181,8 +193,12 @@ class AdminRouteTests(unittest.IsolatedAsyncioTestCase):
         data = ClassSectionCreate(class_name="12", section="B", academic_year=2025)
         result = create_class_section(data, self.db)
         self.assertEqual(result.status, "success")
-        
-        cs = self.db.query(ClassSections).filter(ClassSections.class_name == "12", ClassSections.section == "B").first()
+
+        cs = (
+            self.db.query(ClassSections)
+            .filter(ClassSections.class_name == "12", ClassSections.section == "B")
+            .first()
+        )
         self.assertIsNotNone(cs)
 
     async def test_assign_class_subjects_success(self):
@@ -190,12 +206,19 @@ class AdminRouteTests(unittest.IsolatedAsyncioTestCase):
         sub = Subjects(name="Math")
         self.db.add_all([cs, sub])
         self.db.commit()
-        
+
         data = ClassSubjectLink(class_section_id=cs.id, subject_id=sub.id)
         result = assign_class_subjects(data, self.db)
         self.assertEqual(result.status, "success")
-        
-        link = self.db.query(ClassSubjects).filter(ClassSubjects.class_section_id == cs.id, ClassSubjects.subject_id == sub.id).first()
+
+        link = (
+            self.db.query(ClassSubjects)
+            .filter(
+                ClassSubjects.class_section_id == cs.id,
+                ClassSubjects.subject_id == sub.id,
+            )
+            .first()
+        )
         self.assertIsNotNone(link)
 
     async def test_create_teaching_assignment_success(self):
@@ -208,16 +231,20 @@ class AdminRouteTests(unittest.IsolatedAsyncioTestCase):
         sub = Subjects(name="Math")
         self.db.add_all([staff, cs, sub])
         self.db.commit()
-        
+
         cls_sub = ClassSubjects(class_section_id=cs.id, subject_id=sub.id)
         self.db.add(cls_sub)
         self.db.commit()
-        
+
         data = TeachingAssignmentCreate(staff_id=staff.id, class_subject_id=cls_sub.id)
         result = create_teaching_assignment(data, self.db)
         self.assertEqual(result.status, "success")
-        
-        ta = self.db.query(TeachingAssignments).filter(TeachingAssignments.staff_id == staff.id).first()
+
+        ta = (
+            self.db.query(TeachingAssignments)
+            .filter(TeachingAssignments.staff_id == staff.id)
+            .first()
+        )
         self.assertIsNotNone(ta)
 
     async def test_get_yearly_stats(self):
@@ -225,26 +252,35 @@ class AdminRouteTests(unittest.IsolatedAsyncioTestCase):
         cs = ClassSections(class_name="10", section="A", academic_year=2024)
         self.db.add(cs)
         self.db.commit()
-        
+
         u1 = Users(username="s1", password_hash="x", role="student")
         self.db.add(u1)
         self.db.commit()
-        s1 = Students(user_id=u1.id, name="S1", father_name="F", mother_name="M", admission_date=date.today(), reg_no=1)
+        s1 = Students(
+            user_id=u1.id,
+            name="S1",
+            father_name="F",
+            mother_name="M",
+            admission_date=date.today(),
+            reg_no=1,
+        )
         self.db.add(s1)
         self.db.commit()
-        
-        self.db.add(StudentEnrollments(student_id=s1.id, class_section_id=cs.id, roll_no=1))
-        
+
+        self.db.add(
+            StudentEnrollments(student_id=s1.id, class_section_id=cs.id, roll_no=1)
+        )
+
         u2 = Users(username="t1", password_hash="x", role="teacher")
         self.db.add(u2)
         self.db.commit()
         staff = Staff(user_id=u2.id, name="T1", position="P")
         self.db.add(staff)
         self.db.commit()
-        
+
         # In current implementation of get_yearly_stats, staff_count is total staff count, not filtered by year correctly in the second query
         # staff_count = db.query(func.count(func.distinct(Staff.id))).scalar()
-        
+
         stats = get_yearly_stats(2024, self.db)
         self.assertEqual(stats.year, 2024)
         self.assertEqual(stats.student_count, 1)
@@ -254,14 +290,23 @@ class AdminRouteTests(unittest.IsolatedAsyncioTestCase):
         u = Users(username="s1", password_hash="x", role="student")
         self.db.add(u)
         self.db.commit()
-        s = Students(user_id=u.id, name="S1", father_name="F", mother_name="M", admission_date=date.today(), reg_no=1)
+        s = Students(
+            user_id=u.id,
+            name="S1",
+            father_name="F",
+            mother_name="M",
+            admission_date=date.today(),
+            reg_no=1,
+        )
         cs = ClassSections(class_name="10", section="A", academic_year=2024)
         self.db.add_all([s, cs])
         self.db.commit()
-        self.db.add(StudentEnrollments(student_id=s.id, class_section_id=cs.id, roll_no=1))
+        self.db.add(
+            StudentEnrollments(student_id=s.id, class_section_id=cs.id, roll_no=1)
+        )
         self.db.commit()
-        
-        results = list_students(self.db)
+
+        results = list_students(db=self.db)
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].name, "S1")
 
@@ -272,7 +317,7 @@ class AdminRouteTests(unittest.IsolatedAsyncioTestCase):
         s = Staff(user_id=u.id, name="T1", position="P")
         self.db.add(s)
         self.db.commit()
-        
+
         results = list_teachers(self.db)
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].name, "T1")
@@ -284,7 +329,7 @@ class AdminRouteTests(unittest.IsolatedAsyncioTestCase):
         a = Admins(user_id=u.id, name="A1")
         self.db.add(a)
         self.db.commit()
-        
+
         results = list_admins(self.db)
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].name, "A1")
@@ -292,7 +337,7 @@ class AdminRouteTests(unittest.IsolatedAsyncioTestCase):
     async def test_list_subjects(self):
         self.db.add(Subjects(name="Math"))
         self.db.commit()
-        
+
         results = list_subjects(self.db)
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].name, "Math")
@@ -300,7 +345,7 @@ class AdminRouteTests(unittest.IsolatedAsyncioTestCase):
     async def test_list_class_sections(self):
         self.db.add(ClassSections(class_name="10", section="A", academic_year=2024))
         self.db.commit()
-        
+
         results = list_class_sections(self.db)
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].class_name, "10")
@@ -310,9 +355,10 @@ class AdminRouteTests(unittest.IsolatedAsyncioTestCase):
         self.db.add(cs)
         self.db.commit()
         from models import Exams
+
         self.db.add(Exams(name="Midterm", class_section_id=cs.id, date=date.today()))
         self.db.commit()
-        
+
         results = list_exams(self.db)
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].name, "Midterm")
@@ -324,7 +370,7 @@ class AdminRouteTests(unittest.IsolatedAsyncioTestCase):
         self.db.commit()
         self.db.add(ClassSubjects(class_section_id=cs.id, subject_id=sub.id))
         self.db.commit()
-        
+
         results = list_class_subjects(self.db)
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].subject_id, sub.id)
@@ -343,7 +389,7 @@ class AdminRouteTests(unittest.IsolatedAsyncioTestCase):
         self.db.commit()
         self.db.add(TeachingAssignments(staff_id=staff.id, class_subject_id=cls_sub.id))
         self.db.commit()
-        
+
         results = list_teaching_assignments(self.db)
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].staff_id, staff.id)
@@ -352,13 +398,22 @@ class AdminRouteTests(unittest.IsolatedAsyncioTestCase):
         u = Users(username="s1", password_hash="x", role="student")
         self.db.add(u)
         self.db.commit()
-        s = Students(user_id=u.id, name="S1", father_name="F", mother_name="M", admission_date=date.today(), reg_no=1)
+        s = Students(
+            user_id=u.id,
+            name="S1",
+            father_name="F",
+            mother_name="M",
+            admission_date=date.today(),
+            reg_no=1,
+        )
         cs = ClassSections(class_name="10", section="A", academic_year=2024)
         self.db.add_all([s, cs])
         self.db.commit()
-        self.db.add(StudentEnrollments(student_id=s.id, class_section_id=cs.id, roll_no=1))
+        self.db.add(
+            StudentEnrollments(student_id=s.id, class_section_id=cs.id, roll_no=1)
+        )
         self.db.commit()
-        
+
         results = list_enrollments(self.db)
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].student_id, s.id)

@@ -15,16 +15,13 @@ from logger import configure_logging, get_logger
 from models import (
     AdminProfileResponse,
     Admins,
-    ClassSectionResponse,
     ClassSections,
     GenericUserRoleResponse,
     Staff,
     StaffSubjects,
     StudentEnrollments,
-    StudentInfoResponse,
     StudentProfileResponse,
     Students,
-    StudentSummaryResponse,
     TeacherProfileResponse,
     User,
 )
@@ -94,7 +91,7 @@ async def _log_requests(request: Request, call_next) -> Response:
 
 @app.get(
     "/students/{student_id}",
-    response_model=StudentInfoResponse,
+    response_model=StudentProfileResponse,
     dependencies=[Depends(require_role(["teacher"]))],
     tags=["students"],
     summary="Get a student's enrollment details",
@@ -114,8 +111,10 @@ def get_student_details(student_id: int, db: Session = Depends(get_db)):
         .one()
     )
 
-    return StudentInfoResponse(
+    return StudentProfileResponse(
+        id=data.id,
         roll_no=data.student_enrollments[0].roll_no,
+        reg_no=data.reg_no,
         name=data.name,
         father_name=data.father_name,
         mother_name=data.mother_name,
@@ -164,6 +163,7 @@ def get_student_data(db: Session, user_id):
 
     return StudentProfileResponse(
         id=data.id,
+        roll_no=data.student_enrollments[0].roll_no,
         name=data.name,
         reg_no=data.reg_no,
         father_name=data.father_name,
