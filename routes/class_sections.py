@@ -24,10 +24,12 @@ router = APIRouter(prefix="/class-sections")
     tags=["class-sections"],
     summary="List class sections for the current academic year",
 )
-def list_class_sections(db: Session = Depends(get_db)):
+def list_class_sections(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     classes = (
         db.query(ClassSections)
         .filter(ClassSections.academic_year == date.today().year)
+        .offset(skip)
+        .limit(limit)
         .all()
     )
 
@@ -50,13 +52,15 @@ def list_class_sections(db: Session = Depends(get_db)):
     summary="List students in a class section",
 )
 def list_students_in_class_section(
-    class_section_id: int, db: Session = Depends(get_db)
+    class_section_id: int, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
 ):
     data = (
         db.query(StudentEnrollments)
         .join(Students)
         .filter(StudentEnrollments.class_section_id == class_section_id)
         .order_by(StudentEnrollments.roll_no)
+        .offset(skip)
+        .limit(limit)
         .all()
     )
 

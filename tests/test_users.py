@@ -7,11 +7,13 @@ from main import app, get_current_user_profile
 from db import Base, get_db
 from models import (
     ClassSections,
+    ClassSubjects,
     Staff,
     StaffSubjects,
     StudentEnrollments,
     Students,
     Subjects,
+    TeachingAssignments,
     User,
     UserRole,
     Users,
@@ -60,7 +62,14 @@ class UserTests(unittest.IsolatedAsyncioTestCase):
         self.db.commit()
         self.db.refresh(user)
 
-        student = Students(user_id=user.id, name="Alice", reg_no=123, father_name="F", mother_name="M", admission_date=date(2023, 1, 1))
+        student = Students(
+            user_id=user.id,
+            name="Alice",
+            reg_no=123,
+            father_name="F",
+            mother_name="M",
+            admission_date=date(2023, 1, 1),
+        )
         self.db.add(student)
         self.db.commit()
         self.db.refresh(student)
@@ -70,13 +79,15 @@ class UserTests(unittest.IsolatedAsyncioTestCase):
         self.db.commit()
         self.db.refresh(cs)
 
-        enrollment = StudentEnrollments(student_id=student.id, class_section_id=cs.id, roll_no=1)
+        enrollment = StudentEnrollments(
+            student_id=student.id, class_section_id=cs.id, roll_no=1
+        )
         self.db.add(enrollment)
         self.db.commit()
 
         user_model = User(id=user.id, username=user.username, role=UserRole.STUDENT)
         profile = get_current_user_profile(user_model, self.db)
-        
+
         self.assertIsInstance(profile, StudentProfileResponse)
         self.assertEqual(profile.name, "Alice")
         self.assertEqual(profile.class_name, "10")
@@ -94,22 +105,34 @@ class UserTests(unittest.IsolatedAsyncioTestCase):
         self.db.commit()
         self.db.refresh(staff)
 
+        class_section = ClassSections(class_name="A", section="2", academic_year=2026)
+        self.db.add(class_section)
+        self.db.commit()
+        self.db.refresh(class_section)
+
         subject = Subjects(name="Math")
         self.db.add(subject)
         self.db.commit()
         self.db.refresh(subject)
 
-        ss = StaffSubjects(staff_id=staff.id, subject_id=subject.id)
+        class_subject = ClassSubjects(
+            class_section_id=class_section.id, subject_id=subject.id
+        )
+        self.db.add(class_subject)
+        self.db.commit()
+        self.db.refresh(class_subject)
+
+        ss = TeachingAssignments(staff_id=staff.id, class_subject_id=class_subject.id)
         self.db.add(ss)
         self.db.commit()
 
         user_model = User(id=user.id, username=user.username, role=UserRole.TEACHER)
         profile = get_current_user_profile(user_model, self.db)
-        
+
         self.assertIsInstance(profile, TeacherProfileResponse)
         self.assertEqual(profile.name, "Bob")
         self.assertEqual(profile.position, "Senior Teacher")
-        self.assertIn(subject.id, profile.subjects)
+        self.assertIn(subject.name, profile.subjects)
 
 
 if __name__ == "__main__":

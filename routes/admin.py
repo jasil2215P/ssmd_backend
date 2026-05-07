@@ -1,7 +1,7 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from starlette.status import HTTP_400_BAD_REQUEST
 
 from auth import require_role, password_hash, get_current_user
@@ -19,7 +19,6 @@ from models import (
     Staff,
     StudentEnrollments,
     Students,
-    StudentsResponse,
     SubjectCreate,
     Subjects,
     TeachingAssignmentCreate,
@@ -274,7 +273,12 @@ def create_teaching_assignment(
 
 
 @router.get("/students", response_model=List[StudentProfileResponse])
-def list_students(is_enrolled: bool = True, db: Session = Depends(get_db)):
+def list_students(
+    is_enrolled: bool = True,
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+):
     data = db.query(Students)
     if is_enrolled:
         students = (
@@ -282,12 +286,16 @@ def list_students(is_enrolled: bool = True, db: Session = Depends(get_db)):
             .join(ClassSections)
             .filter(ClassSections.id == StudentEnrollments.class_section_id)
             .order_by(Students.admission_date.desc())
+            .offset(skip)
+            .limit(limit)
             .all()
         )
     else:
         students = (
             data.filter(~Students.student_enrollments.any())
             .order_by(Students.admission_date.desc())
+            .offset(skip)
+            .limit(limit)
             .all()
         )
 
@@ -316,34 +324,46 @@ def get_enrollment_data(s):
 
 
 @router.get("/teachers", response_model=List[TeacherProfileResponse])
-def list_teachers(db: Session = Depends(get_db)):
-    staff_members = db.query(Staff).all()
+def list_teachers(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    staff_members = (
+        db.query(Staff)
+        .options(
+            joinedload(Staff.teaching_assignments)
+            .joinedload(TeachingAssignments.class_subject)
+            .joinedload(ClassSubjects.subject)
+        )
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
     return [
         TeacherProfileResponse(
             id=s.id,
             name=s.name,
             position=s.position,
-            subjects=[sub.subject_id for sub in s.staff_subjects],
+            subjects=list(
+                set(sub.class_subject.subject.name for sub in s.teaching_assignments)
+            ),
         )
         for s in staff_members
     ]
 
 
 @router.get("/admins", response_model=List[AdminProfileResponse])
-def list_admins(db: Session = Depends(get_db)):
-    admins = db.query(Admins).all()
+def list_admins(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    admins = db.query(Admins).offset(skip).limit(limit).all()
     return [AdminProfileResponse(id=a.id, name=a.name) for a in admins]
 
 
 @router.get("/subjects", response_model=List[SubjectResponse])
-def list_subjects(db: Session = Depends(get_db)):
-    subjects = db.query(Subjects).all()
+def list_subjects(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    subjects = db.query(Subjects).offset(skip).limit(limit).all()
     return [SubjectResponse(id=s.id, name=s.name) for s in subjects]
 
 
 @router.get("/class-sections", response_model=List[ClassSectionResponse])
-def list_class_sections(db: Session = Depends(get_db)):
-    class_sections = db.query(ClassSections).all()
+def list_class_sections(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    class_sections = db.query(ClassSections).offset(skip).limit(limit).all()
     return [
         ClassSectionResponse(
             id=cs.id,
@@ -356,8 +376,8 @@ def list_class_sections(db: Session = Depends(get_db)):
 
 
 @router.get("/exams", response_model=List[ExamResponse])
-def list_exams(db: Session = Depends(get_db)):
-    exams = db.query(Exams).all()
+def list_exams(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    exams = db.query(Exams).offset(skip).limit(limit).all()
     return [
         ExamResponse(
             id=e.id,
@@ -372,8 +392,8 @@ def list_exams(db: Session = Depends(get_db)):
 
 
 @router.get("/class-subjects", response_model=List[ClassSubjectResponse])
-def list_class_subjects(db: Session = Depends(get_db)):
-    class_subjects = db.query(ClassSubjects).all()
+def list_class_subjects(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    class_subjects = db.query(ClassSubjects).offset(skip).limit(limit).all()
     return [
         ClassSubjectResponse(
             id=cs.id, class_section_id=cs.class_section_id, subject_id=cs.subject_id
@@ -383,8 +403,10 @@ def list_class_subjects(db: Session = Depends(get_db)):
 
 
 @router.get("/teaching-assignments", response_model=List[TeachingAssignmentResponse])
-def list_teaching_assignments(db: Session = Depends(get_db)):
-    assignments = db.query(TeachingAssignments).all()
+def list_teaching_assignments(
+    skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
+):
+    assignments = db.query(TeachingAssignments).offset(skip).limit(limit).all()
     return [
         TeachingAssignmentResponse(
             id=ta.id, staff_id=ta.staff_id, class_subject_id=ta.class_subject_id
@@ -394,8 +416,8 @@ def list_teaching_assignments(db: Session = Depends(get_db)):
 
 
 @router.get("/enrollments", response_model=List[EnrollmentResponse])
-def list_enrollments(db: Session = Depends(get_db)):
-    enrollments = db.query(StudentEnrollments).all()
+def list_enrollments(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    enrollments = db.query(StudentEnrollments).offset(skip).limit(limit).all()
     return [
         EnrollmentResponse(
             id=e.id,

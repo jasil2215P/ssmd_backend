@@ -232,7 +232,7 @@ class TeacherProfileResponse(BaseModel):
     id: int
     name: str
     position: str
-    subjects: List[int]
+    subjects: List[str]
 
 
 class SubjectMarkResponse(BaseModel):

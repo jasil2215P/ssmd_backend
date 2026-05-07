@@ -27,10 +27,19 @@ ALLOWED_ANNOUNCEMENT_ROLES = {UserRole.TEACHER, UserRole.STUDENT}
     summary="List announcements for the current user",
 )
 def list_announcements(
-    current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+    skip: int = 0,
+    limit: int = 100,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     if current_user.role == "admin":
-        data = db.query(AnnouncementPosts).order_by(AnnouncementPosts.date.desc()).all()
+        data = (
+            db.query(AnnouncementPosts)
+            .order_by(AnnouncementPosts.date.desc())
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
     else:
         data = (
             db.query(AnnouncementPosts)
@@ -44,6 +53,8 @@ def list_announcements(
             .join(Users)
             .filter(AnnouncementPosts.issuer == Users.id)
             .order_by(AnnouncementPosts.date.desc())
+            .offset(skip)
+            .limit(limit)
             .all()
         )
 
@@ -65,7 +76,10 @@ def list_announcements(
     summary="List announcements created by the current user",
 )
 def list_my_announcements(
-    current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+    skip: int = 0,
+    limit: int = 100,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     data = (
         db.query(AnnouncementPosts)
@@ -76,6 +90,8 @@ def list_my_announcements(
         .join(Users)
         .filter(AnnouncementPosts.issuer == Users.id)
         .where(AnnouncementPosts.issuer == current_user.id)
+        .offset(skip)
+        .limit(limit)
     ).all()
     return [
         AnnouncementResponse(

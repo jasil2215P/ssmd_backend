@@ -1,13 +1,12 @@
 import os
 import time
 from contextlib import asynccontextmanager
-from datetime import date
 
 from fastapi import Depends, FastAPI, Request, Response
 from fastapi_limiter import FastAPILimiter
 from fastapi_limiter.depends import RateLimiter
 from sqlalchemy import and_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from auth import get_current_user, require_role, user_or_ip_identifier
 from db import get_db
@@ -16,13 +15,14 @@ from models import (
     AdminProfileResponse,
     Admins,
     ClassSections,
+    ClassSubjects,
     GenericUserRoleResponse,
     Staff,
-    StaffSubjects,
     StudentEnrollments,
     StudentProfileResponse,
     Students,
     TeacherProfileResponse,
+    TeachingAssignments,
     User,
 )
 from redis_client import redis_client
@@ -176,20 +176,23 @@ def get_student_data(db: Session, user_id):
 
 
 def get_teacher_data(db: Session, user_id):
-    staff = db.query(Staff).where(Staff.user_id == user_id).one()
-
-    subject_ids = [
-        row.subject_id
-        for row in db.query(StaffSubjects)
-        .where(StaffSubjects.staff_id == staff.id)
-        .all()
-    ]
-
+    staff = (
+        db.query(Staff)
+        .where(and_(Staff.user_id == user_id, TeachingAssignments.staff_id == user_id))
+        .options(
+            joinedload(Staff.teaching_assignments)
+            .joinedload(TeachingAssignments.class_subject)
+            .joinedload(ClassSubjects.subject)
+        )
+        .one()
+    )
     return TeacherProfileResponse(
         id=staff.id,
         name=staff.name,
         position=staff.position,
-        subjects=subject_ids,
+        subjects=list(
+            set(s.class_subject.subject.name for s in staff.teaching_assignments)
+        ),
     )
 
 

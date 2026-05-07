@@ -307,6 +307,7 @@ class AdminRouteTests(unittest.IsolatedAsyncioTestCase):
         self.db.commit()
 
         results = list_students(db=self.db)
+
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].name, "S1")
 
@@ -318,7 +319,7 @@ class AdminRouteTests(unittest.IsolatedAsyncioTestCase):
         self.db.add(s)
         self.db.commit()
 
-        results = list_teachers(self.db)
+        results = list_teachers(db=self.db)
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].name, "T1")
 
@@ -330,7 +331,7 @@ class AdminRouteTests(unittest.IsolatedAsyncioTestCase):
         self.db.add(a)
         self.db.commit()
 
-        results = list_admins(self.db)
+        results = list_admins(db=self.db)
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].name, "A1")
 
@@ -338,7 +339,8 @@ class AdminRouteTests(unittest.IsolatedAsyncioTestCase):
         self.db.add(Subjects(name="Math"))
         self.db.commit()
 
-        results = list_subjects(self.db)
+        results = list_subjects(db=self.db)
+
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].name, "Math")
 
@@ -346,7 +348,7 @@ class AdminRouteTests(unittest.IsolatedAsyncioTestCase):
         self.db.add(ClassSections(class_name="10", section="A", academic_year=2024))
         self.db.commit()
 
-        results = list_class_sections(self.db)
+        results = list_class_sections(db=self.db)
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].class_name, "10")
 
@@ -359,7 +361,7 @@ class AdminRouteTests(unittest.IsolatedAsyncioTestCase):
         self.db.add(Exams(name="Midterm", class_section_id=cs.id, date=date.today()))
         self.db.commit()
 
-        results = list_exams(self.db)
+        results = list_exams(db=self.db)
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].name, "Midterm")
 
@@ -371,7 +373,7 @@ class AdminRouteTests(unittest.IsolatedAsyncioTestCase):
         self.db.add(ClassSubjects(class_section_id=cs.id, subject_id=sub.id))
         self.db.commit()
 
-        results = list_class_subjects(self.db)
+        results = list_class_subjects(db=self.db)
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].subject_id, sub.id)
 
@@ -390,7 +392,7 @@ class AdminRouteTests(unittest.IsolatedAsyncioTestCase):
         self.db.add(TeachingAssignments(staff_id=staff.id, class_subject_id=cls_sub.id))
         self.db.commit()
 
-        results = list_teaching_assignments(self.db)
+        results = list_teaching_assignments(db=self.db)
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].staff_id, staff.id)
 
@@ -414,9 +416,37 @@ class AdminRouteTests(unittest.IsolatedAsyncioTestCase):
         )
         self.db.commit()
 
-        results = list_enrollments(self.db)
+        results = list_enrollments(db=self.db)
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].student_id, s.id)
+
+    async def test_list_students_pagination(self):
+        # Create 3 students
+        cs = ClassSections(class_name="10", section="A", academic_year=2024)
+        self.db.add(cs)
+        self.db.commit()
+        
+        for i in range(1, 4):
+            u = Users(username=f"student{i}", password_hash="x", role="student")
+            self.db.add(u)
+            self.db.commit()
+            s = Students(user_id=u.id, name=f"S{i}", father_name="F", mother_name="M", admission_date=date(2024, 1, i), reg_no=1000+i)
+            self.db.add(s)
+            self.db.commit()
+            self.db.add(StudentEnrollments(student_id=s.id, class_section_id=cs.id, roll_no=i))
+            self.db.commit()
+            
+        # Test limit=2
+        results = list_students(is_enrolled=True, skip=0, limit=2, db=self.db)
+        self.assertEqual(len(results), 2)
+        # Ordered by admission_date desc: S3, S2, S1
+        self.assertEqual(results[0].name, "S3")
+        self.assertEqual(results[1].name, "S2")
+        
+        # Test skip=2
+        results = list_students(is_enrolled=True, skip=2, limit=2, db=self.db)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].name, "S1")
 
 
 if __name__ == "__main__":

@@ -111,12 +111,12 @@ class AnnouncementTests(unittest.IsolatedAsyncioTestCase):
         self.db.commit()
 
         # Student should only see student announcement
-        student_list = list_announcements(self.student_model, self.db)
+        student_list = list_announcements(current_user=self.student_model, db=self.db)
         self.assertEqual(len(student_list), 1)
         self.assertEqual(student_list[0].subject, "For Students")
 
         # Teacher should only see teacher announcement
-        teacher_list = list_announcements(self.teacher_model, self.db)
+        teacher_list = list_announcements(current_user=self.teacher_model, db=self.db)
         self.assertEqual(len(teacher_list), 1)
         self.assertEqual(teacher_list[0].subject, "For Teachers")
 
@@ -137,7 +137,7 @@ class AnnouncementTests(unittest.IsolatedAsyncioTestCase):
         self.db.add(AnnouncementRoles(announcement_post_id=p3.id, for_role=UserRole.TEACHER))
         self.db.commit()
 
-        my_list = list_my_announcements(self.teacher_model, self.db)
+        my_list = list_my_announcements(current_user=self.teacher_model, db=self.db)
         self.assertEqual(len(my_list), 2)
         subjects = [p.subject for p in my_list]
         self.assertIn("P1", subjects)

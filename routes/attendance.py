@@ -119,7 +119,12 @@ def create_attendance_record(data: CreateAttendance, db: Session = Depends(get_d
     dependencies=[Depends(require_role(["teacher", "admin"]))],
     summary="List today's attendance records for a class section",
 )
-def list_today_attendance_records(class_section_id: int, db: Session = Depends(get_db)):
+def list_today_attendance_records(
+    class_section_id: int,
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+):
     data = (
         db.query(Attendance)
         .where(
@@ -128,6 +133,8 @@ def list_today_attendance_records(class_section_id: int, db: Session = Depends(g
                 Attendance.class_section_id == class_section_id,
             )
         )
+        .offset(skip)
+        .limit(limit)
         .all()
     )
 
