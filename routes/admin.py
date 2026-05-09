@@ -382,7 +382,8 @@ def list_exams(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
         ExamResponse(
             id=e.id,
             name=e.name,
-            class_section_id=e.class_section_id,
+            class_name=e.class_section.class_name,
+            class_section=e.class_section.section,
             date=e.date,
             exam_type=e.exam_type,
             status=e.status,

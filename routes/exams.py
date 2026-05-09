@@ -1,3 +1,4 @@
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -5,6 +6,7 @@ from auth import get_current_user, require_role
 from db import get_db
 from models import (
     ExamCreate,
+    ExamResponse,
     Exams,
     ExamSubjects,
     Marks,
@@ -50,6 +52,48 @@ def create_exam(
         db.rollback()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     return OperationStatusResponse(status="success")
+
+
+@router.get(
+    "/exams",
+    response_model=List[ExamResponse],
+    dependencies=[Depends(require_role(["admin", "teacher"]))],
+    summary="Returns the registered exams",
+)
+def get_exams(
+    completed: bool | None = None,
+    official: bool | None = None,
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+):
+    exams = db.query(Exams)
+    if completed is not None:
+        if completed:
+            exams = exams.filter(Exams.status == "completed")
+        else:
+            exams = exams.filter(Exams.status == "pending")
+
+    if official is not None:
+        if official:
+            exams = exams.filter(Exams.exam_type == "official")
+        else:
+            exams = exams.filter(Exams.exam_type != "official")
+
+    result = exams.offset(skip).limit(limit).all()
+
+    return [
+        ExamResponse(
+            id=e.id,
+            name=e.name,
+            class_name=e.class_section.class_name,
+            class_section=e.class_section.section,
+            date=e.date,
+            exam_type=e.exam_type,
+            status=e.status,
+        )
+        for e in result
+    ]
 
 
 @router.post(
