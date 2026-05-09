@@ -256,9 +256,11 @@ class SubjectResponse(BaseModel):
 
 class ExamResponse(BaseModel):
     id: int
+    exam_subject_id: int
     name: str
-    class_name: str | None
-    class_section: str | None
+    class_name: str
+    class_section: str
+    exam_subjects: str
     date: date
     exam_type: str
     status: str

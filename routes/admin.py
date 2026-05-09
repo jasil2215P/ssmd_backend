@@ -1,6 +1,6 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func
+from sqlalchemy import func, label, select
 from sqlalchemy.orm import Session, joinedload
 from starlette.status import HTTP_400_BAD_REQUEST
 
@@ -376,19 +376,57 @@ def list_class_sections(skip: int = 0, limit: int = 100, db: Session = Depends(g
 
 
 @router.get("/exams", response_model=List[ExamResponse])
-def list_exams(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    exams = db.query(Exams).offset(skip).limit(limit).all()
+def list_exams(
+    completed: bool | None = None,
+    official: bool | None = None,
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+):
+    exams = (
+        select(
+            Exams.id,
+            Exams.name,
+            Exams.date,
+            Exams.status,
+            Exams.exam_type,
+            ExamSubjects.id.label("exam_subject_id"),
+            ClassSections.class_name,
+            ClassSections.section,
+            Subjects.name.label("subject_name"),
+        )
+        .join(Exams.class_section)
+        .join(Exams.exam_subjects)
+        .join(ExamSubjects.class_subject)
+        .join(ClassSubjects.subject)
+    )
+
+    if completed is not None:
+        exams = exams.where(Exams.status == ("completed" if completed else "pending"))
+
+    if official is not None:
+        exams = exams.where(
+            (Exams.exam_type == "official")
+            if official
+            else (Exams.exam_type != "official")
+        )
+
+    exams = exams.offset(skip).limit(limit)
+
+    result = db.execute(exams).mappings().all()
     return [
         ExamResponse(
-            id=e.id,
-            name=e.name,
-            class_name=e.class_section.class_name,
-            class_section=e.class_section.section,
-            date=e.date,
-            exam_type=e.exam_type,
-            status=e.status,
+            id=r["id"],
+            name=r["name"],
+            class_name=r["class_name"],
+            exam_subject_id=r["exam_subject_id"],
+            exam_subjects=r["subject_name"],
+            class_section=r["section"],
+            date=r["date"],
+            exam_type=r["exam_type"],
+            status=r["status"],
         )
-        for e in exams
+        for r in result
     ]
 
 
