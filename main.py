@@ -178,7 +178,7 @@ def get_student_data(db: Session, user_id):
 def get_teacher_data(db: Session, user_id):
     staff = (
         db.query(Staff)
-        .where(and_(Staff.user_id == user_id, TeachingAssignments.staff_id == user_id))
+        .where(Staff.user_id == user_id)
         .options(
             joinedload(Staff.teaching_assignments)
             .joinedload(TeachingAssignments.class_subject)
