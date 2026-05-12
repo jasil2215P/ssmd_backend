@@ -176,9 +176,9 @@ class AttendanceRecordResponse(BaseModel):
 
 
 class StudentAttendanceResponse(BaseModel):
-    student_id: int
-    date: date
-    status: AttendanceStatus
+    student_id: Optional[int]
+    date: Optional[date]
+    status: Optional[AttendanceStatus]
 
 
 class AnnouncementResponse(BaseModel):
@@ -261,6 +261,17 @@ class ExamResponse(BaseModel):
     class_name: str
     class_section: str
     exam_subjects: str
+    date: date
+    exam_type: str
+    status: str
+
+
+class ExamAdminResponse(BaseModel):
+    id: int
+    name: str
+    class_name: str
+    class_section: str
+    exam_subjects: List[str]
     date: date
     exam_type: str
     status: str

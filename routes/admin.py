@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, label, select
@@ -12,6 +13,7 @@ from models import (
     ClassSections,
     ClassSubjectLink,
     EnrollmentCreate,
+    ExamAdminResponse,
     ExamCreate,
     ExamSubjects,
     Exams,
@@ -375,7 +377,11 @@ def list_class_sections(skip: int = 0, limit: int = 100, db: Session = Depends(g
     ]
 
 
-@router.get("/exams", response_model=List[ExamResponse])
+@router.get(
+    "/exams",
+    response_model=List[ExamAdminResponse],
+    summary="List all registered examination.",
+)
 def list_exams(
     completed: bool | None = None,
     official: bool | None = None,
@@ -390,17 +396,12 @@ def list_exams(
             Exams.date,
             Exams.status,
             Exams.exam_type,
-            ExamSubjects.id.label("exam_subject_id"),
             ClassSections.class_name,
             ClassSections.section,
-            Subjects.name.label("subject_name"),
         )
         .join(Exams.class_section)
-        .join(Exams.exam_subjects)
         .join(ExamSubjects.class_subject)
-        .join(ClassSubjects.subject)
     )
-
     if completed is not None:
         exams = exams.where(Exams.status == ("completed" if completed else "pending"))
 
@@ -414,13 +415,29 @@ def list_exams(
     exams = exams.offset(skip).limit(limit)
 
     result = db.execute(exams).mappings().all()
+
+    exam_ids = [r["id"] for r in result]
+    subjects = (
+        select(ExamSubjects.exam_id, Subjects.name)
+        .select_from(ExamSubjects)
+        .join(ExamSubjects.class_subject)
+        .join(ClassSubjects.subject)
+        .where(ExamSubjects.exam_id.in_(exam_ids))
+    )
+
+    subject_results = db.execute(subjects).mappings().all()
+
+    subjects_map = defaultdict(list)
+
+    for s in subject_results:
+        subjects_map[s["exam_id"]].append(s["name"])
+
     return [
-        ExamResponse(
+        ExamAdminResponse(
             id=r["id"],
             name=r["name"],
             class_name=r["class_name"],
-            exam_subject_id=r["exam_subject_id"],
-            exam_subjects=r["subject_name"],
+            exam_subjects=subjects_map[r["id"]],
             class_section=r["section"],
             date=r["date"],
             exam_type=r["exam_type"],
